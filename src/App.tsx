@@ -17,7 +17,6 @@ import {
   Shield,
   X,
 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
 
 type Division = '1ª DIVISÃO' | '2ª DIVISÃO' | '3ª DIVISÃO' | '4ª DIVISÃO';
 type Attribute = 'comportamento' | 'disciplina' | 'liderança' | 'estratégia' | 'poder' | 'lealdade';
@@ -177,7 +176,15 @@ function App() {
   const currentQuestion = questions[quizStep];
 
   const closeMenu = () => setMenuOpen(false);
-  const startQuiz = () => { setQuizOpen(true); setQuizStep(0); setAnswers([]); setResult(null); closeMenu(); document.body.style.overflow = 'hidden'; };
+  const startQuiz = () => {
+    setVisitorName('');
+    setQuizOpen(true);
+    setQuizStep(0);
+    setAnswers([]);
+    setResult(null);
+    closeMenu();
+    document.body.style.overflow = 'hidden';
+  };
   const closeQuiz = () => { setQuizOpen(false); document.body.style.overflow = ''; };
   const selectAnswer = (answerIndex: number) => setAnswers((current) => { const next = [...current]; next[quizStep] = answerIndex; return next; });
 
@@ -192,7 +199,6 @@ function App() {
     const division: Division = total >= 88 ? '1ª DIVISÃO' : total >= 78 ? '2ª DIVISÃO' : total >= 68 ? '3ª DIVISÃO' : '4ª DIVISÃO';
     const nextResult = { name: visitorName.trim() || 'RECRUTA', division, scores };
     setResult(nextResult);
-    await supabase.from('allied_quiz_attempts').insert({ visitor_name: nextResult.name, division, scores });
   };
 
   const stats = useMemo(() => [
