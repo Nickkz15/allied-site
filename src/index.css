@@ -727,8 +727,8 @@ h1 span, h2 span {
 
 .mural-gallery {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 22px 18px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px 20px;
   align-items: start;
 }
 
@@ -741,40 +741,34 @@ h1 span, h2 span {
   z-index: 2;
 }
 
-.mural-piece.mural-large {
-  grid-column: span 1;
-}
-
-.mural-piece.mural-wide {
-  grid-column: span 1;
-}
-
+.mural-piece.mural-large,
+.mural-piece.mural-wide,
 .mural-piece.mural-tall {
   grid-column: span 1;
 }
 
 .mural-frame {
   position: relative;
-  padding: 8px;
+  padding: 9px;
   background: #f8f4ee;
   border: 1px solid rgba(12, 12, 12, 0.1);
   box-shadow:
     0 4px 8px rgba(12, 12, 12, 0.05),
-    0 12px 28px rgba(12, 12, 12, 0.08);
+    0 14px 32px rgba(12, 12, 12, 0.09);
   transition: box-shadow 0.35s var(--ease-smooth);
 }
 
 .mural-piece:hover .mural-frame {
   box-shadow:
     0 8px 14px rgba(12, 12, 12, 0.07),
-    0 20px 40px rgba(165, 38, 48, 0.12);
+    0 22px 44px rgba(165, 38, 48, 0.13);
 }
 
 .mural-img {
   display: block;
   width: 100%;
   height: auto;
-  max-height: 280px;
+  max-height: 340px;
   object-fit: contain;
   object-position: center;
   background: #1a1a1a;
@@ -783,10 +777,10 @@ h1 span, h2 span {
 
 .mural-corner {
   position: absolute;
-  width: 12px;
-  height: 12px;
+  width: 13px;
+  height: 13px;
   border: 1.5px solid var(--red);
-  opacity: 0.65;
+  opacity: 0.7;
   transition: opacity 0.3s, transform 0.3s var(--ease-spring);
 }
 
@@ -810,7 +804,7 @@ h1 span, h2 span {
 }
 
 .mural-caption {
-  padding: 12px 2px 0;
+  padding: 13px 2px 0;
   text-align: center;
 }
 
@@ -823,11 +817,11 @@ h1 span, h2 span {
 @media (max-width: 900px) {
   .mural-gallery {
     grid-template-columns: repeat(2, 1fr);
-    gap: 16px 12px;
+    gap: 18px 14px;
   }
 
   .mural-img {
-    max-height: 240px;
+    max-height: 300px;
   }
 }
 
@@ -837,7 +831,7 @@ h1 span, h2 span {
   }
 
   .mural-img {
-    max-height: 320px;
+    max-height: 380px;
   }
 }
 
