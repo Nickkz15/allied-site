@@ -159,26 +159,36 @@ const faqItems = [
 ];
 
 const muralPhotos = [
-  { src: '/images/mural/foto1.png', name: 'Membro 01', role: 'Allied' },
-  { src: '/images/mural/foto2.png', name: 'Membro 02', role: 'Allied' },
-  { src: '/images/mural/foto3.png', name: 'Membro 03', role: 'Allied' },
-  { src: '/images/mural/foto4.png', name: 'Membro 04', role: 'Allied' },
-  { src: '/images/mural/foto5.png', name: 'Membro 05', role: 'Allied' },
-  { src: '/images/mural/foto6.png', name: 'Membro 06', role: 'Allied' },
-  { src: '/images/mural/foto7.png', name: 'Membro 07', role: 'Allied' },
-  { src: '/images/mural/foto8.png', name: 'Membro 08', role: 'Allied' },
-  { src: '/images/mural/foto9.png', name: 'Membro 09', role: 'Allied' },
-  { src: '/images/mural/foto10.png', name: 'Membro 10', role: 'Allied' },
+  { src: '/images/mural/foto1.png', label: 'Lembrança - 01', size: 'large' },
+  { src: '/images/mural/foto2.png', label: 'Lembrança - 02', size: 'tall' },
+  { src: '/images/mural/foto3.png', label: 'Lembrança - 03', size: 'wide' },
+  { src: '/images/mural/foto4.png', label: 'Lembrança - 04', size: 'normal' },
+  { src: '/images/mural/foto5.png', label: 'Lembrança - 05', size: 'large' },
+  { src: '/images/mural/foto6.png', label: 'Lembrança - 06', size: 'tall' },
+  { src: '/images/mural/foto7.png', label: 'Lembrança - 07', size: 'normal' },
+  { src: '/images/mural/foto8.png', label: 'Lembrança - 08', size: 'wide' },
+  { src: '/images/mural/foto9.png', label: 'Lembrança - 09', size: 'normal' },
+  { src: '/images/mural/foto10.png', label: 'Lembrança - 10', size: 'large' },
 ];
 
-const fallingChars = ['桜', '月', '風', '雪', '龍', '夜', '光', '空', '夢'];
+const fallingChars = ['桜', '月', '風', '雪', '龍', '夜', '光', '空', '夢', '影', '炎', '剣', '魂', '絆', '静'];
 
 function LogoMark({ small = false }: { small?: boolean }) {
-  return <div className={`logo-mark ${small ? 'logo-mark-small' : ''}`} aria-label="Símbolo Allied"><span>✦</span><span>✦</span><span>✦</span><span>✦</span></div>;
+  return (
+    <div className={`logo-mark ${small ? 'logo-mark-small' : ''}`} aria-label="Símbolo Allied">
+      <span>✦</span><span>✦</span><span>✦</span><span>✦</span>
+    </div>
+  );
 }
 
 function SectionLabel({ children, number }: { children: string; number?: string }) {
-  return <div className="section-label"><span>{number ?? '///'}</span><span>{children}</span><i /></div>;
+  return (
+    <div className="section-label">
+      <span>{number ?? '///'}</span>
+      <span>{children}</span>
+      <i />
+    </div>
+  );
 }
 
 function App() {
@@ -188,23 +198,32 @@ function App() {
   const [answers, setAnswers] = useState<number[]>([]);
   const [result, setResult] = useState<Result | null>(null);
   const [visitorName, setVisitorName] = useState('');
-  const [musicOn, setMusicOn] = useState(false);
+  const [musicOn, setMusicOn] = useState(true);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const musicTried = useRef(false);
+  const unlockAttempted = useRef(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
     window.addEventListener('scroll', onScroll, { passive: true });
-    const revealObserver = new IntersectionObserver((entries) => entries.forEach((entry) => entry.isIntersecting && entry.target.classList.add('is-visible')), { threshold: 0.12 });
-    document.querySelectorAll('.reveal').forEach((element) => revealObserver.observe(element));
-    return () => { window.removeEventListener('scroll', onScroll); revealObserver.disconnect(); };
+
+    const revealObserver = new IntersectionObserver(
+      (entries) => entries.forEach((entry) => entry.isIntersecting && entry.target.classList.add('is-visible')),
+      { threshold: 0.1, rootMargin: '0px 0px -8% 0px' }
+    );
+    document.querySelectorAll('.reveal').forEach((el) => revealObserver.observe(el));
+
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      revealObserver.disconnect();
+    };
   }, []);
 
   useEffect(() => {
     const audio = new Audio('/audio/japanese-ambient.mp3');
     audio.loop = true;
-    audio.volume = 0.28;
+    audio.volume = 0.32;
     audio.preload = 'auto';
     audioRef.current = audio;
 
@@ -215,16 +234,37 @@ function App() {
         await audio.play();
         setMusicOn(true);
       } catch {
-        setMusicOn(false);
+        setMusicOn(true);
       }
     };
 
     tryPlay();
 
+    const unlockOnInteraction = async () => {
+      if (unlockAttempted.current || !audioRef.current) return;
+      unlockAttempted.current = true;
+      try {
+        if (audioRef.current.paused) {
+          await audioRef.current.play();
+          setMusicOn(true);
+        }
+      } catch { /* silent */ }
+      document.removeEventListener('click', unlockOnInteraction);
+      document.removeEventListener('touchstart', unlockOnInteraction);
+      document.removeEventListener('keydown', unlockOnInteraction);
+    };
+
+    document.addEventListener('click', unlockOnInteraction, { once: true });
+    document.addEventListener('touchstart', unlockOnInteraction, { once: true });
+    document.addEventListener('keydown', unlockOnInteraction, { once: true });
+
     return () => {
       audio.pause();
       audio.src = '';
       audioRef.current = null;
+      document.removeEventListener('click', unlockOnInteraction);
+      document.removeEventListener('touchstart', unlockOnInteraction);
+      document.removeEventListener('keydown', unlockOnInteraction);
     };
   }, []);
 
@@ -248,17 +288,29 @@ function App() {
   const currentQuestion = questions[quizStep];
 
   const closeMenu = () => setMenuOpen(false);
-  const selectAnswer = (answerIndex: number) => setAnswers((current) => { const next = [...current]; next[quizStep] = answerIndex; return next; });
+  const selectAnswer = (answerIndex: number) =>
+    setAnswers((current) => {
+      const next = [...current];
+      next[quizStep] = answerIndex;
+      return next;
+    });
 
   const finishQuiz = () => {
-    const scoreTotals: Record<Attribute, number> = { comportamento: 0, disciplina: 0, liderança: 0, estratégia: 0, poder: 0, lealdade: 0 };
+    const scoreTotals: Record<Attribute, number> = {
+      comportamento: 0, disciplina: 0, liderança: 0, estratégia: 0, poder: 0, lealdade: 0,
+    };
     answers.forEach((answerIndex, questionIndex) => {
       const answer = questions[questionIndex].answers[answerIndex];
-      Object.entries(answer.scores).forEach(([key, value]) => { scoreTotals[key as Attribute] += value ?? 0; });
+      Object.entries(answer.scores).forEach(([key, value]) => {
+        scoreTotals[key as Attribute] += value ?? 0;
+      });
     });
-    const scores = Object.fromEntries(attributeKeys.map((key) => [key, Math.min(99, Math.round(58 + scoreTotals[key] * 3.2))])) as Record<Attribute, number>;
+    const scores = Object.fromEntries(
+      attributeKeys.map((key) => [key, Math.min(99, Math.round(58 + scoreTotals[key] * 3.2))])
+    ) as Record<Attribute, number>;
     const total = Object.values(scores).reduce((sum, score) => sum + score, 0) / attributeKeys.length;
-    const division: Division = total >= 88 ? '1ª DIVISÃO' : total >= 78 ? '2ª DIVISÃO' : total >= 68 ? '3ª DIVISÃO' : '4ª DIVISÃO';
+    const division: Division =
+      total >= 88 ? '1ª DIVISÃO' : total >= 78 ? '2ª DIVISÃO' : total >= 68 ? '3ª DIVISÃO' : '4ª DIVISÃO';
     setResult({ name: visitorName.trim() || 'RECRUTA', division, scores });
   };
 
@@ -273,40 +325,95 @@ function App() {
     setOpenFaq((prev) => (prev === index ? null : index));
   };
 
-  const stats = useMemo(() => [
-    { value: '0', label: 'TOLERÂNCIA PARA TRAIDORES', note: 'Lealdade e confiança fazem parte da estrutura da Allied.', icon: Shield, featured: true },
-    { value: 'PT-BR', label: 'SERVIDOR', note: 'Uma base, muitas histórias.', icon: MessageCircle },
-    { value: '01', label: 'GANGUE COMPLETA', note: 'Uma estrutura com identidade própria.', icon: Crown },
-    { value: 'GAKURAN', label: 'UNIVERSO', note: 'Onde a presença ganha forma.', icon: Landmark },
-    { value: 'ATIVA', label: 'HIERARQUIA', note: 'Cada membro possui um lugar.', icon: Crosshair },
-    { value: 'ABERTO', label: 'RECRUTAMENTO', note: 'A próxima história pode ser a sua.', icon: ArrowRight },
-  ], []);
+  const stats = useMemo(
+    () => [
+      { value: '0', label: 'TOLERÂNCIA PARA TRAIDORES', note: 'Lealdade e confiança fazem parte da estrutura da Allied.', icon: Shield, featured: true },
+      { value: 'PT-BR', label: 'SERVIDOR', note: 'Uma base, muitas histórias.', icon: MessageCircle },
+      { value: '01', label: 'GANGUE COMPLETA', note: 'Uma estrutura com identidade própria.', icon: Crown },
+      { value: 'GAKURAN', label: 'UNIVERSO', note: 'Onde a presença ganha forma.', icon: Landmark },
+      { value: 'ATIVA', label: 'HIERARQUIA', note: 'Cada membro possui um lugar.', icon: Crosshair },
+      { value: 'ABERTO', label: 'RECRUTAMENTO', note: 'A próxima história pode ser a sua.', icon: ArrowRight },
+    ],
+    []
+  );
 
   return (
     <div className={`allied-app ${musicOn ? 'ambient-on' : ''}`}>
+      {/* Atmospheric layers */}
+      <div className="atmosphere-sky" aria-hidden="true" />
+      <div className="atmosphere-moon" aria-hidden="true" />
+      <div className="atmosphere-fog fog-back" aria-hidden="true" />
+      <div className="atmosphere-fuji" aria-hidden="true" />
+      <div className="atmosphere-fog fog-mid" aria-hidden="true" />
+      <div className="atmosphere-mountains" aria-hidden="true" />
+      <div className="atmosphere-fog fog-front" aria-hidden="true" />
       <div className="grain" />
       <div className="rain" />
-      <div className="fuji" aria-hidden="true" />
+
+      {/* Enhanced sakura */}
       <div className="sakura-layer" aria-hidden="true">
-        <span className="sakura sakura-1" />
-        <span className="sakura sakura-2" />
-        <span className="sakura sakura-3" />
-        <span className="sakura sakura-4" />
-      </div>
-      <div className="falling-chars" aria-hidden="true">
-        {fallingChars.map((ch, i) => (
-          <span key={ch + i} className={`fall-char fall-${i}`} style={{ animationDelay: `${i * 1.7}s`, left: `${8 + i * 11}%` }}>{ch}</span>
+        {Array.from({ length: 28 }).map((_, i) => (
+          <span
+            key={`sakura-${i}`}
+            className={`sakura sakura-${(i % 6) + 1}`}
+            style={{
+              left: `${(i * 7.3) % 100}%`,
+              animationDelay: `${(i * 0.85) % 18}s`,
+              animationDuration: `${14 + (i % 12)}s`,
+              width: `${6 + (i % 5) * 2}px`,
+              height: `${6 + (i % 5) * 2}px`,
+              opacity: 0.35 + (i % 4) * 0.12,
+            }}
+          />
         ))}
       </div>
+
+      {/* Enhanced falling characters */}
+      <div className="falling-chars" aria-hidden="true">
+        {fallingChars.map((ch, i) => (
+          <span
+            key={`char-${ch}-${i}`}
+            className={`fall-char fall-depth-${(i % 3) + 1}`}
+            style={{
+              left: `${4 + ((i * 6.4) % 92)}%`,
+              animationDelay: `${(i * 1.35) % 16}s`,
+              animationDuration: `${16 + (i % 10)}s`,
+              fontSize: `${12 + (i % 5) * 3}px`,
+            }}
+          >
+            {ch}
+          </span>
+        ))}
+      </div>
+
       <div className="kanji kanji-one">忠<br />誠</div>
       <div className="kanji kanji-two">規<br />律</div>
+      <div className="kanji kanji-three">絆</div>
 
       <header className={`site-nav ${scrolled ? 'nav-scrolled' : ''}`}>
-        <a className="nav-brand" href="#home" onClick={closeMenu}><LogoMark small /><span>ALLIED<em>GAKURAN • PT-BR</em></span></a>
-        <button className="menu-button" aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'} onClick={() => setMenuOpen((open) => !open)}>{menuOpen ? <X size={18} /> : <Menu size={18} />}</button>
+        <a className="nav-brand" href="#home" onClick={closeMenu}>
+          <LogoMark small />
+          <span>ALLIED<em>GAKURAN • PT-BR</em></span>
+        </a>
+        <button
+          className="menu-button"
+          aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'}
+          onClick={() => setMenuOpen((o) => !o)}
+        >
+          {menuOpen ? <X size={18} /> : <Menu size={18} />}
+        </button>
         <nav className={menuOpen ? 'nav-links nav-links-open' : 'nav-links'}>
-          {['home:HOME', 'allied:ALLIED', 'hierarchy:HIERARQUIA', 'mural:MURAL', 'stats:ESTATÍSTICAS', 'rules:REGRAS', 'test:TESTE', 'faq:FAQ'].map((link) => { const [id, label] = link.split(':'); return <a href={`#${id}`} key={id} onClick={closeMenu}>{label}</a>; })}
-          <a className="nav-cta" href="https://discord.gg/UFUMMx5PkD" target="_blank" rel="noreferrer" onClick={closeMenu}>ENTRAR <ArrowUpRight size={13} /></a>
+          {['home:HOME', 'allied:ALLIED', 'hierarchy:HIERARQUIA', 'mural:MURAL', 'stats:ESTATÍSTICAS', 'rules:REGRAS', 'test:TESTE', 'faq:FAQ'].map((link) => {
+            const [id, label] = link.split(':');
+            return (
+              <a href={`#${id}`} key={id} onClick={closeMenu}>
+                {label}
+              </a>
+            );
+          })}
+          <a className="nav-cta" href="https://discord.gg/UFUMMx5PkD" target="_blank" rel="noreferrer" onClick={closeMenu}>
+            ENTRAR <ArrowUpRight size={13} />
+          </a>
         </nav>
       </header>
 
@@ -317,78 +424,311 @@ function App() {
           <div className="hero-content reveal">
             <SectionLabel number="01 / 08">GAKURAN • PT-BR</SectionLabel>
             <p className="hero-kicker">A noite guarda quem tem presença.</p>
-            <h1>ENTRE<br /><span>NA ALLIED</span></h1>
-            <p className="hero-copy">Uma gangue completa dentro do universo de Gakuran. A Allied reúne jogadores que buscam disciplina, competitividade, presença e evolução.</p>
-            <div className="hero-actions"><a className="button button-red" href="https://discord.gg/UFUMMx5PkD" target="_blank" rel="noreferrer">ENTRAR NA ALLIED <ArrowUpRight size={16} /></a><a className="button button-outline" href="https://www.roblox.com/pt/games/128736949265057/Gakuran" target="_blank" rel="noreferrer">JOGAR GAKURAN <Gamepad2 size={15} /></a></div>
-            <div className="hero-note"><span className="note-line" />Para entrar, abra um ticket no Discord e envie qualquer mensagem.</div>
+            <h1>
+              ENTRE
+              <br />
+              <span>NA ALLIED</span>
+            </h1>
+            <p className="hero-copy">
+              Uma gangue completa dentro do universo de Gakuran. A Allied reúne jogadores que buscam disciplina,
+              competitividade, presença e evolução.
+            </p>
+            <div className="hero-actions">
+              <a className="button button-red" href="https://discord.gg/UFUMMx5PkD" target="_blank" rel="noreferrer">
+                ENTRAR NA ALLIED <ArrowUpRight size={16} />
+              </a>
+              <a
+                className="button button-outline"
+                href="https://www.roblox.com/pt/games/128736949265057/Gakuran"
+                target="_blank"
+                rel="noreferrer"
+              >
+                JOGAR GAKURAN <Gamepad2 size={15} />
+              </a>
+            </div>
+            <div className="hero-note">
+              <span className="note-line" />
+              Para entrar, abra um ticket no Discord e envie qualquer mensagem.
+            </div>
           </div>
-          <div className="hero-emblem reveal"><div className="emblem-glow" /><LogoMark /><span className="emblem-caption">A / 01<br />ALLIED</span></div>
-          <div className="scroll-cue"><ArrowDown size={15} /><span>DESCUBRA A ESTRUTURA</span></div>
-          <div className="hero-side-text">DISCIPLINA<br />LEALDADE<br />PRESENÇA</div>
+          <div className="hero-emblem reveal">
+            <div className="emblem-glow" />
+            <LogoMark />
+            <span className="emblem-caption">
+              A / 01
+              <br />
+              ALLIED
+            </span>
+          </div>
+          <div className="scroll-cue">
+            <ArrowDown size={15} />
+            <span>DESCUBRA A ESTRUTURA</span>
+          </div>
+          <div className="hero-side-text">
+            DISCIPLINA
+            <br />
+            LEALDADE
+            <br />
+            PRESENÇA
+          </div>
         </section>
 
-        <section className="manifesto section-dark" id="allied">
+        <section className="manifesto section-atmosphere" id="allied">
           <div className="content-grid">
-            <div className="reveal"><SectionLabel number="02 / 08">A ALLIED</SectionLabel><h2>Não é apenas<br /><span>entrar.</span></h2><p className="large-copy">A Allied é uma gangue completa dentro de Gakuran, construída sobre hierarquia, disciplina, competitividade e presença. Nossa estrutura existe para transformar jogadores em membros preparados para representar a gangue dentro e fora dos confrontos.</p><a className="text-link" href="#hierarchy">CONHEÇA NOSSA ESTRUTURA <ArrowRight size={16} /></a></div>
-            <div className="manifesto-card reveal"><div className="card-image school-image" /><div className="manifesto-card-footer"><span>ALLIED ARCHIVE / 001</span><span>忠誠 — LEALDADE</span></div></div>
+            <div className="reveal">
+              <SectionLabel number="02 / 08">A ALLIED</SectionLabel>
+              <h2>
+                Não é apenas
+                <br />
+                <span>entrar.</span>
+              </h2>
+              <p className="large-copy">
+                A Allied é uma gangue completa dentro de Gakuran, construída sobre hierarquia, disciplina,
+                competitividade e presença. Nossa estrutura existe para transformar jogadores em membros preparados
+                para representar a gangue dentro e fora dos confrontos.
+              </p>
+              <a className="text-link" href="#hierarchy">
+                CONHEÇA NOSSA ESTRUTURA <ArrowRight size={16} />
+              </a>
+            </div>
+            <div className="manifesto-card reveal">
+              <div className="card-image school-image" />
+              <div className="manifesto-card-footer">
+                <span>ALLIED ARCHIVE / 001</span>
+                <span>忠誠 — LEALDADE</span>
+              </div>
+            </div>
           </div>
-          <div className="quote-line reveal"><Quote size={20} /><span>“ENTRAR É FÁCIL. PERMANECER EXIGE COMPROMISSO.”</span><i /></div>
+          <div className="quote-line reveal">
+            <Quote size={20} />
+            <span>“ENTRAR É FÁCIL. PERMANECER EXIGE COMPROMISSO.”</span>
+            <i />
+          </div>
         </section>
 
         <section className="central section-paper" id="central">
-          <div className="section-heading reveal"><div><SectionLabel number="03 / 08">PORTAS DE ACESSO</SectionLabel><h2>Central da <span>Allied</span></h2></div><p>Três destinos. Uma mesma origem.<br />Escolha onde sua história começa.</p></div>
-          <div className="link-grid">{officialLinks.map(({ label, title, description, href, icon: Icon }, index) => <a className="official-card reveal" href={href} target="_blank" rel="noreferrer" key={label} style={{ transitionDelay: `${index * 90}ms` }}><div className="official-top"><span>0{index + 1}</span><Icon size={20} /></div><div><p>{label}</p><h3>{title}</h3><span>{description}</span></div><div className="card-arrow"><MoveUpRight size={17} /></div></a>)}</div>
+          <div className="section-heading reveal">
+            <div>
+              <SectionLabel number="03 / 08">PORTAS DE ACESSO</SectionLabel>
+              <h2>
+                Central da <span>Allied</span>
+              </h2>
+            </div>
+            <p>
+              Três destinos. Uma mesma origem.
+              <br />
+              Escolha onde sua história começa.
+            </p>
+          </div>
+          <div className="link-grid">
+            {officialLinks.map(({ label, title, description, href, icon: Icon }, index) => (
+              <a
+                className="official-card reveal"
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+                key={label}
+                style={{ transitionDelay: `${index * 90}ms` }}
+              >
+                <div className="official-top">
+                  <span>0{index + 1}</span>
+                  <Icon size={20} />
+                </div>
+                <div>
+                  <p>{label}</p>
+                  <h3>{title}</h3>
+                  <span>{description}</span>
+                </div>
+                <div className="card-arrow">
+                  <MoveUpRight size={17} />
+                </div>
+              </a>
+            ))}
+          </div>
         </section>
 
-        <section className="hierarchy section-dark" id="hierarchy">
-          <div className="content-grid hierarchy-grid"><div className="reveal"><SectionLabel number="04 / 08">A ESTRUTURA</SectionLabel><h2>Hierarquia<br /><span>ativa.</span></h2><p className="large-copy">A hierarquia define a estrutura. Cada posição exige presença, responsabilidade e a vontade de proteger o nome Allied.</p><div className="vertical-note"><span>HIERARQUIA / ATIVA</span><i /></div></div><div className="leader-stack"><article className="leader-card leader-primary reveal"><div className="leader-photo leader-one" /><div className="leader-info"><span>LÍDER / 01</span><h3>Toru</h3><p>O ponto de direção. A voz que mantém a estrutura em movimento.</p></div><LogoMark small /></article><article className="leader-card reveal"><div className="leader-photo leader-two" /><div className="leader-info"><span>SUB-LÍDER / 02</span><h3>Maniack</h3><p>Presença de apoio, disciplina em cada decisão.</p></div><LogoMark small /></article></div></div>
+        <section className="hierarchy section-atmosphere" id="hierarchy">
+          <div className="content-grid hierarchy-grid">
+            <div className="reveal">
+              <SectionLabel number="04 / 08">A ESTRUTURA</SectionLabel>
+              <h2>
+                Hierarquia
+                <br />
+                <span>ativa.</span>
+              </h2>
+              <p className="large-copy">
+                A hierarquia define a estrutura. Cada posição exige presença, responsabilidade e a vontade de proteger
+                o nome Allied.
+              </p>
+              <div className="vertical-note">
+                <span>HIERARQUIA / ATIVA</span>
+                <i />
+              </div>
+            </div>
+            <div className="leader-stack">
+              <article className="leader-card leader-primary reveal">
+                <div className="leader-photo leader-one" />
+                <div className="leader-info">
+                  <span>LÍDER / 01</span>
+                  <h3>Toru</h3>
+                  <p>O ponto de direção. A voz que mantém a estrutura em movimento.</p>
+                </div>
+                <LogoMark small />
+              </article>
+              <article className="leader-card reveal">
+                <div className="leader-photo leader-two" />
+                <div className="leader-info">
+                  <span>SUB-LÍDER / 02</span>
+                  <h3>Maniack</h3>
+                  <p>Presença de apoio, disciplina em cada decisão.</p>
+                </div>
+                <LogoMark small />
+              </article>
+            </div>
+          </div>
         </section>
 
         <section className="mural-section section-paper" id="mural">
           <div className="section-heading reveal">
-            <div><SectionLabel number="05 / 08">MURAL ALLIED</SectionLabel><h2>Nossos<br /><span>membros.</span></h2></div>
-            <p>Presença. Identidade.<br />História coletiva.</p>
+            <div>
+              <SectionLabel number="05 / 08">記録</SectionLabel>
+              <h2>
+                Mural de
+                <br />
+                <span>Fotos</span>
+              </h2>
+            </div>
+            <p>
+              Momentos capturados.
+              <br />
+              Presença registrada.
+            </p>
           </div>
-          <div className="mural-grid">
+          <div className="mural-gallery">
             {muralPhotos.map((photo, index) => (
-              <article className="mural-card reveal" key={photo.src} style={{ transitionDelay: `${index * 60}ms` }}>
+              <article
+                className={`mural-piece mural-${photo.size} reveal`}
+                key={photo.src}
+                style={{ transitionDelay: `${index * 55}ms` }}
+              >
                 <div className="mural-frame">
                   <div className="mural-photo" style={{ backgroundImage: `url(${photo.src})` }} />
-                  <div className="mural-ornament mural-ornament-tl" />
-                  <div className="mural-ornament mural-ornament-br" />
+                  <div className="mural-shine" />
+                  <div className="mural-corner mural-corner-tl" />
+                  <div className="mural-corner mural-corner-br" />
                 </div>
-                <div className="mural-meta">
-                  <span>{photo.role}</span>
-                  <strong>{photo.name}</strong>
+                <div className="mural-caption">
+                  <span>{photo.label}</span>
                 </div>
               </article>
             ))}
           </div>
         </section>
 
-        <section className="stats section-paper" id="stats"><div className="section-heading reveal"><div><SectionLabel number="06 / 08">REGISTRO ALLIED</SectionLabel><h2>Uma estrutura<br /><span>em movimento.</span></h2></div><span className="stamp">ALLIED<br />RECORDS</span></div><div className="stats-grid">{stats.map(({ value, label, note, icon: Icon, featured }, index) => <div className={`stat-card reveal ${featured ? 'stat-featured' : ''}`} key={label} style={{ transitionDelay: `${index * 70}ms` }}><Icon size={17} /><strong>{value}</strong><h3>{label}</h3><p>{note}</p><span className="stat-index">0{index + 1}</span></div>)}</div></section>
+        <section className="stats section-paper" id="stats">
+          <div className="section-heading reveal">
+            <div>
+              <SectionLabel number="06 / 08">REGISTRO ALLIED</SectionLabel>
+              <h2>
+                Uma estrutura
+                <br />
+                <span>em movimento.</span>
+              </h2>
+            </div>
+            <span className="stamp">
+              ALLIED
+              <br />
+              RECORDS
+            </span>
+          </div>
+          <div className="stats-grid">
+            {stats.map(({ value, label, note, icon: Icon, featured }, index) => (
+              <div
+                className={`stat-card reveal ${featured ? 'stat-featured' : ''}`}
+                key={label}
+                style={{ transitionDelay: `${index * 70}ms` }}
+              >
+                <Icon size={17} />
+                <strong>{value}</strong>
+                <h3>{label}</h3>
+                <p>{note}</p>
+                <span className="stat-index">0{index + 1}</span>
+              </div>
+            ))}
+          </div>
+        </section>
 
-        <section className="rules section-dark" id="rules"><div className="rules-intro reveal"><SectionLabel number="07 / 08">CÓDIGO DA ALLIED</SectionLabel><h2>As regras existem<br />para preservar<br /><span>nossa estrutura.</span></h2><p>Um nome forte exige uma conduta à altura. Leia antes de entrar.</p></div><div className="rules-list">{rules.map(([title, description], index) => <article className="rule reveal" key={title}><span className="rule-number">{String(index + 1).padStart(2, '0')}</span><div><h3>{title}</h3><p>{description}</p></div><Check size={15} /></article>)}</div></section>
+        <section className="rules section-atmosphere" id="rules">
+          <div className="rules-intro reveal">
+            <SectionLabel number="07 / 08">CÓDIGO DA ALLIED</SectionLabel>
+            <h2>
+              As regras existem
+              <br />
+              para preservar
+              <br />
+              <span>nossa estrutura.</span>
+            </h2>
+            <p>Um nome forte exige uma conduta à altura. Leia antes de entrar.</p>
+          </div>
+          <div className="rules-list">
+            {rules.map(([title, description], index) => (
+              <article className="rule reveal" key={title}>
+                <span className="rule-number">{String(index + 1).padStart(2, '0')}</span>
+                <div>
+                  <h3>{title}</h3>
+                  <p>{description}</p>
+                </div>
+                <Check size={15} />
+              </article>
+            ))}
+          </div>
+        </section>
 
         <section className="quiz-section section-paper" id="test">
           <div className="quiz-inline reveal">
             <div className="quiz-inline-header">
               <SectionLabel number="08 / 08">入隊試験 / RECRUITMENT TEST</SectionLabel>
-              <h2>Descubra sua<br /><span>divisão.</span></h2>
-              <p>Quinze perguntas. Quatro caminhos em cada uma. Nenhuma resposta é certa — apenas revela como você se posiciona.</p>
+              <h2>
+                Descubra sua
+                <br />
+                <span>divisão.</span>
+              </h2>
+              <p>
+                Quinze perguntas. Quatro caminhos em cada uma. Nenhuma resposta é certa — apenas revela como você se
+                posiciona.
+              </p>
             </div>
 
             {result ? (
               <div className="result-inline">
-                <div className="result-orbit"><LogoMark /><span>{result.division.split('ª')[0]}ª</span></div>
+                <div className="result-orbit">
+                  <LogoMark />
+                  <span>{result.division.split('ª')[0]}ª</span>
+                </div>
                 <p className="result-eyebrow">{divisions[result.division].eyebrow}</p>
-                <h3>{result.name}, <span>{result.division}</span></h3>
+                <h3>
+                  {result.name}, <span>{result.division}</span>
+                </h3>
                 <p className="result-title">{divisions[result.division].title}</p>
                 <p className="result-description">{divisions[result.division].description}</p>
-                <div className="score-grid">{attributeKeys.map((key) => <div className="score-row" key={key}><span>{attributeLabels[key]}</span><div><i style={{ width: `${result.scores[key]}%` }} /></div><strong>{result.scores[key]}%</strong></div>)}</div>
+                <div className="score-grid">
+                  {attributeKeys.map((key) => (
+                    <div className="score-row" key={key}>
+                      <span>{attributeLabels[key]}</span>
+                      <div>
+                        <i style={{ width: `${result.scores[key]}%` }} />
+                      </div>
+                      <strong>{result.scores[key]}%</strong>
+                    </div>
+                  ))}
+                </div>
                 <div className="result-actions">
-                  <a className="button button-red" href="https://discord.gg/UFUMMx5PkD" target="_blank" rel="noreferrer">ENTRAR NA ALLIED <ArrowUpRight size={15} /></a>
-                  <button className="button button-ghost" onClick={resetQuiz}>REFAZER TESTE</button>
+                  <a className="button button-red" href="https://discord.gg/UFUMMx5PkD" target="_blank" rel="noreferrer">
+                    ENTRAR NA ALLIED <ArrowUpRight size={15} />
+                  </a>
+                  <button className="button button-ghost" onClick={resetQuiz}>
+                    REFAZER TESTE
+                  </button>
                 </div>
               </div>
             ) : (
@@ -396,14 +736,27 @@ function App() {
                 {!visitorName && quizStep === 0 && answers.length === 0 ? (
                   <div className="quiz-name-step">
                     <label htmlFor="visitor-name">Seu nome (opcional)</label>
-                    <input id="visitor-name" type="text" value={visitorName} onChange={(e) => setVisitorName(e.target.value)} placeholder="RECRUTA" maxLength={24} />
-                    <button className="button button-red" onClick={() => setVisitorName((v) => v.trim() || 'RECRUTA')}>COMEÇAR TESTE <ArrowRight size={15} /></button>
+                    <input
+                      id="visitor-name"
+                      type="text"
+                      value={visitorName}
+                      onChange={(e) => setVisitorName(e.target.value)}
+                      placeholder="RECRUTA"
+                      maxLength={24}
+                    />
+                    <button className="button button-red" onClick={() => setVisitorName((v) => v.trim() || 'RECRUTA')}>
+                      COMEÇAR TESTE <ArrowRight size={15} />
+                    </button>
                   </div>
                 ) : (
                   <>
                     <div className="quiz-progress">
-                      <span>PERGUNTA {String(quizStep + 1).padStart(2, '0')} / {questions.length}</span>
-                      <div><i style={{ width: `${Math.max(7, progress)}%` }} /></div>
+                      <span>
+                        PERGUNTA {String(quizStep + 1).padStart(2, '0')} / {questions.length}
+                      </span>
+                      <div>
+                        <i style={{ width: `${Math.max(7, progress)}%` }} />
+                      </div>
                       <span>{progress}%</span>
                     </div>
                     <span className="question-number">{currentQuestion.number}</span>
@@ -426,7 +779,11 @@ function App() {
                     <div className="quiz-footer">
                       <span>DISCIPLINA · LEALDADE · PRESENÇA</span>
                       <div>
-                        {quizStep > 0 && <button className="back-button" type="button" onClick={() => setQuizStep((s) => s - 1)}>VOLTAR</button>}
+                        {quizStep > 0 && (
+                          <button className="back-button" type="button" onClick={() => setQuizStep((s) => s - 1)}>
+                            VOLTAR
+                          </button>
+                        )}
                         <button
                           className="button button-red"
                           type="button"
@@ -444,10 +801,21 @@ function App() {
           </div>
         </section>
 
-        <section className="faq section-dark" id="faq">
+        <section className="faq section-atmosphere" id="faq">
           <div className="section-heading reveal">
-            <div><SectionLabel>よくある質問</SectionLabel><h2>Perguntas<br /><span>frequentes.</span></h2></div>
-            <p>Antes de entrar, conheça o lugar<br />que você está prestes a ocupar.</p>
+            <div>
+              <SectionLabel>よくある質問</SectionLabel>
+              <h2>
+                Perguntas
+                <br />
+                <span>frequentes.</span>
+              </h2>
+            </div>
+            <p>
+              Antes de entrar, conheça o lugar
+              <br />
+              que você está prestes a ocupar.
+            </p>
           </div>
           <div className="faq-list">
             {faqItems.map((item, index) => {
@@ -482,16 +850,46 @@ function App() {
           </div>
         </section>
 
-        <section className="final-cta"><div className="final-image" /><div className="final-overlay" /><div className="final-content reveal"><LogoMark /><SectionLabel>THE NEXT CHAPTER</SectionLabel><h2>Se você chegou<br />até aqui, talvez<br />seja hora de <span>entrar.</span></h2><p>A Allied está esperando por novos membros.</p><a className="button button-red" href="https://discord.gg/UFUMMx5PkD" target="_blank" rel="noreferrer">ABRIR MEU TICKET <ArrowUpRight size={16} /></a></div></section>
+        <section className="final-cta">
+          <div className="final-image" />
+          <div className="final-overlay" />
+          <div className="final-content reveal">
+            <LogoMark />
+            <SectionLabel>THE NEXT CHAPTER</SectionLabel>
+            <h2>
+              Se você chegou
+              <br />
+              até aqui, talvez
+              <br />
+              seja hora de <span>entrar.</span>
+            </h2>
+            <p>A Allied está esperando por novos membros.</p>
+            <a className="button button-red" href="https://discord.gg/UFUMMx5PkD" target="_blank" rel="noreferrer">
+              ABRIR MEU TICKET <ArrowUpRight size={16} />
+            </a>
+          </div>
+        </section>
       </main>
 
       <footer className="site-footer">
-        <div className="footer-brand"><LogoMark small /><div><strong>ALLIED</strong><span>GAKURAN • PT-BR</span></div></div>
+        <div className="footer-brand">
+          <LogoMark small />
+          <div>
+            <strong>ALLIED</strong>
+            <span>GAKURAN • PT-BR</span>
+          </div>
+        </div>
         <p>Uma gangue completa dentro do universo de Gakuran.</p>
         <div className="footer-links">
-          <a href="https://www.roblox.com/pt/games/128736949265057/Gakuran" target="_blank" rel="noreferrer">ROBLOX</a>
-          <a href="https://discord.gg/gakuran" target="_blank" rel="noreferrer">DISCORD GAKURAN</a>
-          <a href="https://discord.gg/UFUMMx5PkD" target="_blank" rel="noreferrer">DISCORD ALLIED</a>
+          <a href="https://www.roblox.com/pt/games/128736949265057/Gakuran" target="_blank" rel="noreferrer">
+            ROBLOX
+          </a>
+          <a href="https://discord.gg/gakuran" target="_blank" rel="noreferrer">
+            DISCORD GAKURAN
+          </a>
+          <a href="https://discord.gg/UFUMMx5PkD" target="_blank" rel="noreferrer">
+            DISCORD ALLIED
+          </a>
         </div>
         <span className="copyright">© ALLIED / 2026</span>
       </footer>
