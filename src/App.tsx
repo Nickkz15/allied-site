@@ -144,7 +144,14 @@ const divisions: Record<Division, { eyebrow: string; title: string; description:
   '4ª DIVISÃO': { eyebrow: 'PRIMEIRO PASSO', title: 'A porta de entrada está aberta.', description: 'A 4ª Divisão é a porta de entrada. Aqui estão aqueles que estão começando sua trajetória na Allied. Todo membro começa em algum lugar, e evolução depende de presença, disciplina e dedicação.' },
 };
 
-const attributeLabels: Record<Attribute, string> = { comportamento: 'COMPORTAMENTO', disciplina: 'DISCIPLINA', liderança: 'LIDERANÇA', estratégia: 'ESTRATÉGIA', poder: 'PODER', lealdade: 'LEALDADE' };
+const attributeLabels: Record<Attribute, string> = {
+  comportamento: 'COMPORTAMENTO',
+  disciplina: 'DISCIPLINA',
+  liderança: 'LIDERANÇA',
+  estratégia: 'ESTRATÉGIA',
+  poder: 'PODER',
+  lealdade: 'LEALDADE',
+};
 const attributeKeys: Attribute[] = ['comportamento', 'disciplina', 'liderança', 'estratégia', 'poder', 'lealdade'];
 
 const faqItems = [
@@ -171,12 +178,19 @@ const muralPhotos = [
   { src: '/images/mural/foto10.png', label: 'Lembrança - 10', size: 'large' },
 ];
 
-const fallingChars = ['桜', '月', '風', '雪', '龍', '夜', '光', '空', '夢', '影', '炎', '剣', '魂', '絆', '静'];
+const fallingChars = [
+  '桜', '月', '風', '雪', '龍', '夜', '光', '空', '夢', '影',
+  '炎', '剣', '魂', '絆', '静', '桜', '月', '風', '雪', '龍',
+  '夜', '光', '空', '夢',
+];
 
 function LogoMark({ small = false }: { small?: boolean }) {
   return (
     <div className={`logo-mark ${small ? 'logo-mark-small' : ''}`} aria-label="Símbolo Allied">
-      <span>✦</span><span>✦</span><span>✦</span><span>✦</span>
+      <span>✦</span>
+      <span>✦</span>
+      <span>✦</span>
+      <span>✦</span>
     </div>
   );
 }
@@ -209,9 +223,14 @@ function App() {
     window.addEventListener('scroll', onScroll, { passive: true });
 
     const revealObserver = new IntersectionObserver(
-      (entries) => entries.forEach((entry) => entry.isIntersecting && entry.target.classList.add('is-visible')),
-      { threshold: 0.1, rootMargin: '0px 0px -8% 0px' }
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) entry.target.classList.add('is-visible');
+        });
+      },
+      { threshold: 0.1, rootMargin: '0px 0px -6% 0px' }
     );
+
     document.querySelectorAll('.reveal').forEach((el) => revealObserver.observe(el));
 
     return () => {
@@ -248,7 +267,9 @@ function App() {
           await audioRef.current.play();
           setMusicOn(true);
         }
-      } catch { /* silent */ }
+      } catch {
+        /* silent */
+      }
       document.removeEventListener('click', unlockOnInteraction);
       document.removeEventListener('touchstart', unlockOnInteraction);
       document.removeEventListener('keydown', unlockOnInteraction);
@@ -288,6 +309,7 @@ function App() {
   const currentQuestion = questions[quizStep];
 
   const closeMenu = () => setMenuOpen(false);
+
   const selectAnswer = (answerIndex: number) =>
     setAnswers((current) => {
       const next = [...current];
@@ -297,20 +319,29 @@ function App() {
 
   const finishQuiz = () => {
     const scoreTotals: Record<Attribute, number> = {
-      comportamento: 0, disciplina: 0, liderança: 0, estratégia: 0, poder: 0, lealdade: 0,
+      comportamento: 0,
+      disciplina: 0,
+      liderança: 0,
+      estratégia: 0,
+      poder: 0,
+      lealdade: 0,
     };
+
     answers.forEach((answerIndex, questionIndex) => {
       const answer = questions[questionIndex].answers[answerIndex];
       Object.entries(answer.scores).forEach(([key, value]) => {
         scoreTotals[key as Attribute] += value ?? 0;
       });
     });
+
     const scores = Object.fromEntries(
       attributeKeys.map((key) => [key, Math.min(99, Math.round(58 + scoreTotals[key] * 3.2))])
     ) as Record<Attribute, number>;
+
     const total = Object.values(scores).reduce((sum, score) => sum + score, 0) / attributeKeys.length;
     const division: Division =
       total >= 88 ? '1ª DIVISÃO' : total >= 78 ? '2ª DIVISÃO' : total >= 68 ? '3ª DIVISÃO' : '4ª DIVISÃO';
+
     setResult({ name: visitorName.trim() || 'RECRUTA', division, scores });
   };
 
@@ -339,7 +370,7 @@ function App() {
 
   return (
     <div className={`allied-app ${musicOn ? 'ambient-on' : ''}`}>
-      {/* Atmospheric layers */}
+      {/* Atmosphere layers */}
       <div className="atmosphere-sky" aria-hidden="true" />
       <div className="atmosphere-moon" aria-hidden="true" />
       <div className="atmosphere-fog fog-back" aria-hidden="true" />
@@ -350,35 +381,34 @@ function App() {
       <div className="grain" />
       <div className="rain" />
 
-      {/* Enhanced sakura */}
+      {/* High-visibility sakura */}
       <div className="sakura-layer" aria-hidden="true">
-        {Array.from({ length: 28 }).map((_, i) => (
+        {Array.from({ length: 42 }).map((_, i) => (
           <span
             key={`sakura-${i}`}
-            className={`sakura sakura-${(i % 6) + 1}`}
+            className={`sakura sakura-var-${(i % 6) + 1}`}
             style={{
-              left: `${(i * 7.3) % 100}%`,
-              animationDelay: `${(i * 0.85) % 18}s`,
-              animationDuration: `${14 + (i % 12)}s`,
-              width: `${6 + (i % 5) * 2}px`,
-              height: `${6 + (i % 5) * 2}px`,
-              opacity: 0.35 + (i % 4) * 0.12,
+              left: `${(i * 4.8 + 1.5) % 100}%`,
+              animationDelay: `${(i * 0.55) % 16}s`,
+              animationDuration: `${11 + (i % 11)}s`,
+              width: `${9 + (i % 7) * 2.2}px`,
+              height: `${9 + (i % 7) * 2.2}px`,
             }}
           />
         ))}
       </div>
 
-      {/* Enhanced falling characters */}
+      {/* High-visibility falling characters */}
       <div className="falling-chars" aria-hidden="true">
         {fallingChars.map((ch, i) => (
           <span
             key={`char-${ch}-${i}`}
             className={`fall-char fall-depth-${(i % 3) + 1}`}
             style={{
-              left: `${4 + ((i * 6.4) % 92)}%`,
-              animationDelay: `${(i * 1.35) % 16}s`,
-              animationDuration: `${16 + (i % 10)}s`,
-              fontSize: `${12 + (i % 5) * 3}px`,
+              left: `${2.5 + ((i * 4.7) % 95)}%`,
+              animationDelay: `${(i * 0.95) % 14}s`,
+              animationDuration: `${13 + (i % 10)}s`,
+              fontSize: `${15 + (i % 7) * 2.8}px`,
             }}
           >
             {ch}
@@ -386,20 +416,26 @@ function App() {
         ))}
       </div>
 
-      <div className="kanji kanji-one">忠<br />誠</div>
-      <div className="kanji kanji-two">規<br />律</div>
+      <div className="kanji kanji-one">
+        忠
+        <br />
+        誠
+      </div>
+      <div className="kanji kanji-two">
+        規
+        <br />
+        律
+      </div>
       <div className="kanji kanji-three">絆</div>
 
       <header className={`site-nav ${scrolled ? 'nav-scrolled' : ''}`}>
         <a className="nav-brand" href="#home" onClick={closeMenu}>
           <LogoMark small />
-          <span>ALLIED<em>GAKURAN • PT-BR</em></span>
+          <span>
+            ALLIED<em>GAKURAN • PT-BR</em>
+          </span>
         </a>
-        <button
-          className="menu-button"
-          aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'}
-          onClick={() => setMenuOpen((o) => !o)}
-        >
+        <button className="menu-button" aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'} onClick={() => setMenuOpen((o) => !o)}>
           {menuOpen ? <X size={18} /> : <Menu size={18} />}
         </button>
         <nav className={menuOpen ? 'nav-links nav-links-open' : 'nav-links'}>
@@ -430,19 +466,13 @@ function App() {
               <span>NA ALLIED</span>
             </h1>
             <p className="hero-copy">
-              Uma gangue completa dentro do universo de Gakuran. A Allied reúne jogadores que buscam disciplina,
-              competitividade, presença e evolução.
+              Uma gangue completa dentro do universo de Gakuran. A Allied reúne jogadores que buscam disciplina, competitividade, presença e evolução.
             </p>
             <div className="hero-actions">
               <a className="button button-red" href="https://discord.gg/UFUMMx5PkD" target="_blank" rel="noreferrer">
                 ENTRAR NA ALLIED <ArrowUpRight size={16} />
               </a>
-              <a
-                className="button button-outline"
-                href="https://www.roblox.com/pt/games/128736949265057/Gakuran"
-                target="_blank"
-                rel="noreferrer"
-              >
+              <a className="button button-outline" href="https://www.roblox.com/pt/games/128736949265057/Gakuran" target="_blank" rel="noreferrer">
                 JOGAR GAKURAN <Gamepad2 size={15} />
               </a>
             </div>
@@ -483,9 +513,7 @@ function App() {
                 <span>entrar.</span>
               </h2>
               <p className="large-copy">
-                A Allied é uma gangue completa dentro de Gakuran, construída sobre hierarquia, disciplina,
-                competitividade e presença. Nossa estrutura existe para transformar jogadores em membros preparados
-                para representar a gangue dentro e fora dos confrontos.
+                A Allied é uma gangue completa dentro de Gakuran, construída sobre hierarquia, disciplina, competitividade e presença. Nossa estrutura existe para transformar jogadores em membros preparados para representar a gangue dentro e fora dos confrontos.
               </p>
               <a className="text-link" href="#hierarchy">
                 CONHEÇA NOSSA ESTRUTURA <ArrowRight size={16} />
@@ -556,10 +584,7 @@ function App() {
                 <br />
                 <span>ativa.</span>
               </h2>
-              <p className="large-copy">
-                A hierarquia define a estrutura. Cada posição exige presença, responsabilidade e a vontade de proteger
-                o nome Allied.
-              </p>
+              <p className="large-copy">A hierarquia define a estrutura. Cada posição exige presença, responsabilidade e a vontade de proteger o nome Allied.</p>
               <div className="vertical-note">
                 <span>HIERARQUIA / ATIVA</span>
                 <i />
@@ -609,10 +634,10 @@ function App() {
               <article
                 className={`mural-piece mural-${photo.size} reveal`}
                 key={photo.src}
-                style={{ transitionDelay: `${index * 55}ms` }}
+                style={{ transitionDelay: `${index * 45}ms` }}
               >
                 <div className="mural-frame">
-                  <div className="mural-photo" style={{ backgroundImage: `url(${photo.src})` }} />
+                  <img className="mural-img" src={photo.src} alt={photo.label} loading="lazy" />
                   <div className="mural-shine" />
                   <div className="mural-corner mural-corner-tl" />
                   <div className="mural-corner mural-corner-br" />
@@ -693,10 +718,7 @@ function App() {
                 <br />
                 <span>divisão.</span>
               </h2>
-              <p>
-                Quinze perguntas. Quatro caminhos em cada uma. Nenhuma resposta é certa — apenas revela como você se
-                posiciona.
-              </p>
+              <p>Quinze perguntas. Quatro caminhos em cada uma. Nenhuma resposta é certa — apenas revela como você se posiciona.</p>
             </div>
 
             {result ? (
@@ -822,12 +844,7 @@ function App() {
               const isOpen = openFaq === index;
               return (
                 <div className={`faq-item ${isOpen ? 'faq-open' : ''}`} key={item.q}>
-                  <button
-                    type="button"
-                    aria-expanded={isOpen}
-                    aria-controls={`faq-answer-${index}`}
-                    onClick={() => toggleFaq(index)}
-                  >
+                  <button type="button" aria-expanded={isOpen} aria-controls={`faq-answer-${index}`} onClick={() => toggleFaq(index)}>
                     <span>0{index + 1}</span>
                     <strong>{item.q}</strong>
                     <ChevronDown size={17} />
