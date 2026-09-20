@@ -381,22 +381,22 @@ function App() {
       <div className="grain" />
       <div className="rain" />
 
-      {/* High-visibility sakura */}
-      <div className="sakura-layer" aria-hidden="true">
-        {Array.from({ length: 42 }).map((_, i) => (
-          <span
-            key={`sakura-${i}`}
-            className={`sakura sakura-var-${(i % 6) + 1}`}
-            style={{
-              left: `${(i * 4.8 + 1.5) % 100}%`,
-              animationDelay: `${(i * 0.55) % 16}s`,
-              animationDuration: `${11 + (i % 11)}s`,
-              width: `${9 + (i % 7) * 2.2}px`,
-              height: `${9 + (i % 7) * 2.2}px`,
-            }}
-          />
-        ))}
-      </div>
+    {/* High-visibility sakura */}
+    <div className="sakura-layer" aria-hidden="true">
+      {Array.from({ length: 14 }).map((_, i) => (
+        <span
+          key={`sakura-${i}`}
+          className={`sakura sakura-var-${(i % 6) + 1}`}
+          style={{
+            left: `${(i * 7.2 + 3) % 100}%`,
+            animationDelay: `${(i * 1.1) % 14}s`,
+            animationDuration: `${13 + (i % 8)}s`,
+            width: `${10 + (i % 5) * 2}px`,
+            height: `${10 + (i % 5) * 2}px`,
+          }}
+        />
+      ))}
+    </div>
 
       {/* High-visibility falling characters */}
       <div className="falling-chars" aria-hidden="true">

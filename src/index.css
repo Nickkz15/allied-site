@@ -720,13 +720,15 @@ h1 span, h2 span {
   max-width: 230px;
 }
 
-/* ——— MURAL DE FOTOS (fotos inteiras, sem crop destrutivo) ——— */
-.mural-section { background: #e6e1d9; }
+/* ——— MURAL DE FOTOS ——— */
+.mural-section {
+  background: #e6e1d9;
+}
 
 .mural-gallery {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 28px 22px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 36px 28px;
   align-items: start;
 }
 
@@ -735,37 +737,40 @@ h1 span, h2 span {
 }
 
 .mural-piece:hover {
-  transform: translateY(-8px) rotate(-0.5deg);
+  transform: translateY(-6px);
   z-index: 2;
 }
 
-.mural-piece:nth-child(3n) { transform: rotate(0.8deg); }
-.mural-piece:nth-child(3n):hover { transform: translateY(-8px) rotate(0deg); }
-.mural-piece:nth-child(5n) { transform: rotate(-0.6deg); }
-.mural-piece:nth-child(5n):hover { transform: translateY(-8px) rotate(0deg); }
+.mural-piece.mural-large {
+  grid-column: span 2;
+}
+
+.mural-piece.mural-wide {
+  grid-column: span 2;
+}
 
 .mural-frame {
   position: relative;
-  padding: 12px;
+  padding: 10px;
   background: #f8f4ee;
-  border: 1px solid rgba(12, 12, 12, 0.12);
+  border: 1px solid rgba(12, 12, 12, 0.1);
   box-shadow:
-    0 4px 6px rgba(12, 12, 12, 0.04),
-    0 14px 36px rgba(12, 12, 12, 0.1);
+    0 6px 10px rgba(12, 12, 12, 0.05),
+    0 18px 42px rgba(12, 12, 12, 0.1);
   transition: box-shadow 0.4s var(--ease-smooth);
 }
 
 .mural-piece:hover .mural-frame {
   box-shadow:
-    0 8px 12px rgba(12, 12, 12, 0.06),
-    0 24px 50px rgba(165, 38, 48, 0.16);
+    0 10px 16px rgba(12, 12, 12, 0.07),
+    0 28px 56px rgba(165, 38, 48, 0.14);
 }
 
 .mural-img {
   display: block;
   width: 100%;
   height: auto;
-  max-height: 420px;
+  max-height: none;
   object-fit: contain;
   object-position: center;
   background: #1a1a1a;
@@ -774,41 +779,52 @@ h1 span, h2 span {
 
 .mural-corner {
   position: absolute;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border: 1.5px solid var(--red);
-  opacity: 0.75;
+  opacity: 0.7;
   transition: opacity 0.3s, transform 0.35s var(--ease-spring);
 }
 
 .mural-piece:hover .mural-corner {
   opacity: 1;
-  transform: scale(1.15);
+  transform: scale(1.1);
 }
 
 .mural-corner-tl {
-  top: 5px;
-  left: 5px;
+  top: 4px;
+  left: 4px;
   border-right: 0;
   border-bottom: 0;
 }
 
 .mural-corner-br {
-  bottom: 5px;
-  right: 5px;
+  bottom: 4px;
+  right: 4px;
   border-left: 0;
   border-top: 0;
 }
 
 .mural-caption {
-  padding: 14px 6px 0;
+  padding: 16px 4px 0;
   text-align: center;
 }
 
 .mural-caption span {
   color: var(--red);
-  font: 10px 'DM Mono', monospace;
+  font: 11px 'DM Mono', monospace;
   letter-spacing: 0.18em;
+}
+
+@media (max-width: 900px) {
+  .mural-gallery {
+    grid-template-columns: 1fr;
+  }
+
+  .mural-piece.mural-large,
+  .mural-piece.mural-wide {
+    grid-column: span 1;
+  }
 }
 
 /* stats / rules / quiz / faq (mantidos) */
