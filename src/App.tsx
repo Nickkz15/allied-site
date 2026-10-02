@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
 import {
   ArrowRight,
   ArrowUpRight,
@@ -11,48 +18,90 @@ import {
   X,
 } from 'lucide-react';
 
+/* =========================================================
+   ALLIED — EXPERIÊNCIA CINEMATOGRÁFICA
+   Arquitetura: jornada contínua em 6 atos
+   Performance: mouse via CSS vars + rAF (sem re-render)
+   ========================================================= */
+
 type SectionId =
   | 'home'
   | 'allied'
+  | 'mural'
   | 'hierarchy'
   | 'chuva'
   | 'sangue'
   | 'abismo'
   | 'eclipse'
   | 'test'
-  | 'join'
   | 'signal'
   | 'archives'
+  | 'join'
   | 'rules'
-  | 'faq'
-  | 'mural';
+  | 'faq';
 
 type DivisionId = 'chuva' | 'sangue' | 'abismo' | 'eclipse';
 type DivisionScores = Record<DivisionId, number>;
 type Answer = { label: string; weights: Partial<DivisionScores> };
 type Question = { id: number; prompt: string; answers: Answer[] };
 
-const PASS_KEY = 'allied-pass-v1';
+type PassState = {
+  chuva: boolean;
+  sangue: boolean;
+  abismo: boolean;
+  eclipse: boolean;
+  test: boolean;
+  archives: boolean;
+};
+
+const PASS_KEY = 'allied-pass-v2';
+const ARCHIVE_KEY = 'allied-archives-v1';
+
 const FALLING_CHARS = [
   '桜', '月', '風', '雪', '龍', '夜', '光', '空', '夢', '影',
   '炎', '剣', '魂', '絆', '静', '雷', '霧', '玄', '刃', '嵐',
 ];
 
-const SECTIONS: { id: SectionId; label: string }[] = [
-  { id: 'home', label: 'INÍCIO' },
-  { id: 'allied', label: 'ALLIED' },
-  { id: 'hierarchy', label: 'HIERARQUIA' },
-  { id: 'chuva', label: 'CHUVA' },
-  { id: 'sangue', label: 'SANGUE' },
-  { id: 'abismo', label: 'ABISMO' },
-  { id: 'eclipse', label: 'ECLIPSE' },
+/** Ordem narrativa da jornada (6 atos) */
+const JOURNEY: SectionId[] = [
+  'home',
+  'allied',
+  'mural',
+  'hierarchy',
+  'chuva',
+  'sangue',
+  'abismo',
+  'eclipse',
+  'test',
+  'signal',
+  'archives',
+  'join',
+  'rules',
+  'faq',
+];
+
+/** Menu superior — grandes atos (não cada micro-seção) */
+const ACT_NAV: { id: SectionId; label: string }[] = [
+  { id: 'home', label: 'IDENTIDADE' },
+  { id: 'mural', label: 'ESTRUTURA' },
+  { id: 'chuva', label: 'DIVISÕES' },
   { id: 'test', label: 'TESTE' },
-  { id: 'signal', label: 'SINAL' },
-  { id: 'mural', label: 'MURAL' },
-  { id: 'archives', label: 'ARQUIVOS' },
+  { id: 'signal', label: 'REGISTROS' },
   { id: 'join', label: 'ENTRAR' },
-  { id: 'rules', label: 'CÓDIGO' },
-  { id: 'faq', label: 'FAQ' },
+];
+
+/** Rail interna — sistema da organização */
+const RAIL_NODES: { id: SectionId; label: string; sigil?: DivisionId }[] = [
+  { id: 'home', label: 'NÚCLEO' },
+  { id: 'mural', label: 'PRESENÇA' },
+  { id: 'hierarchy', label: 'COMANDO' },
+  { id: 'chuva', label: 'CHUVA', sigil: 'chuva' },
+  { id: 'sangue', label: 'SANGUE', sigil: 'sangue' },
+  { id: 'abismo', label: 'ABISMO', sigil: 'abismo' },
+  { id: 'eclipse', label: 'ECLIPSE', sigil: 'eclipse' },
+  { id: 'test', label: 'CLASSIFICAÇÃO' },
+  { id: 'archives', label: 'ARQUIVOS' },
+  { id: 'join', label: 'INGRESSO' },
 ];
 
 const questions: Question[] = [
@@ -158,6 +207,39 @@ const questions: Question[] = [
   },
 ];
 
+/**
+ * Desempate determinístico (não depende da ordem do objeto JS).
+ * Ordem de prioridade em empate de score:
+ * 1) maior peso total
+ * 2) desempate por “afinidade de resposta dominante” (maior peso único em uma questão)
+ * 3) ordem canônica fixa: chuva → sangue → abismo → eclipse
+ */
+const TIE_ORDER: DivisionId[] = ['chuva', 'sangue', 'abismo', 'eclipse'];
+
+function resolveDivision(
+  scores: DivisionScores,
+  answers: (number | undefined)[]
+): DivisionId {
+  const max = Math.max(...TIE_ORDER.map((k) => scores[k]));
+  const tied = TIE_ORDER.filter((k) => scores[k] === max);
+  if (tied.length === 1) return tied[0];
+
+  const peak: DivisionScores = { chuva: 0, sangue: 0, abismo: 0, eclipse: 0 };
+  answers.forEach((ai, qi) => {
+    if (ai === undefined) return;
+    const w = questions[qi].answers[ai].weights;
+    (Object.keys(w) as DivisionId[]).forEach((k) => {
+      const v = w[k] ?? 0;
+      if (v > peak[k]) peak[k] = v;
+    });
+  });
+  const maxPeak = Math.max(...tied.map((k) => peak[k]));
+  const byPeak = tied.filter((k) => peak[k] === maxPeak);
+  if (byPeak.length === 1) return byPeak[0];
+
+  return TIE_ORDER.find((k) => byPeak.includes(k)) ?? byPeak[0];
+}
+
 const divisionMeta: Record<
   DivisionId,
   { name: string; full: string; code: string; tagline: string; profile: string; traits: string[] }
@@ -201,12 +283,58 @@ const divisionMeta: Record<
 };
 
 const hierarchyNodes = [
-  { id: 'leader', role: 'LÍDER', title: 'Comando da Allied', desc: 'Direção absoluta da organização.', img: '/images/leadership/lider-allied.png', ring: 0 },
-  { id: 'vice', role: 'VICE-LÍDER', title: 'Coordenação central', desc: 'Braço direito do comando.', img: '/images/leadership/vice-lider-allied.png', ring: 1 },
-  { id: 'd1', role: 'CHUVA', title: 'Líder da 1ª Divisão', desc: 'Estratégia e precisão.', img: '/images/leadership/lider-divisao-1.png', ring: 2, div: 'chuva' as DivisionId },
-  { id: 'd2', role: 'SANGUE', title: 'Líder da 2ª Divisão', desc: 'Impacto e domínio.', img: '/images/leadership/lider-divisao-2.png', ring: 2, div: 'sangue' as DivisionId },
-  { id: 'd3', role: 'ABISMO', title: 'Líder da 3ª Divisão', desc: 'Profundidade e controle.', img: '/images/leadership/lider-divisao-3.png', ring: 2, div: 'abismo' as DivisionId },
-  { id: 'd4', role: 'ECLIPSE', title: 'Líder da 4ª Divisão', desc: 'Dualidade e adaptação.', img: '/images/leadership/lider-divisao-4.png', ring: 2, div: 'eclipse' as DivisionId },
+  {
+    id: 'leader',
+    role: 'LÍDER',
+    title: 'Comando da Allied',
+    desc: 'Direção absoluta da organização.',
+    img: '/images/leadership/lider-allied.png',
+    ring: 0,
+  },
+  {
+    id: 'vice',
+    role: 'VICE-LÍDER',
+    title: 'Coordenação central',
+    desc: 'Braço direito do comando.',
+    img: '/images/leadership/vice-lider-allied.png',
+    ring: 1,
+  },
+  {
+    id: 'd1',
+    role: 'CHUVA',
+    title: 'Líder da 1ª Divisão',
+    desc: 'Estratégia e precisão.',
+    img: '/images/leadership/lider-divisao-1.png',
+    ring: 2,
+    div: 'chuva' as DivisionId,
+  },
+  {
+    id: 'd2',
+    role: 'SANGUE',
+    title: 'Líder da 2ª Divisão',
+    desc: 'Impacto e domínio.',
+    img: '/images/leadership/lider-divisao-2.png',
+    ring: 2,
+    div: 'sangue' as DivisionId,
+  },
+  {
+    id: 'd3',
+    role: 'ABISMO',
+    title: 'Líder da 3ª Divisão',
+    desc: 'Profundidade e controle.',
+    img: '/images/leadership/lider-divisao-3.png',
+    ring: 2,
+    div: 'abismo' as DivisionId,
+  },
+  {
+    id: 'd4',
+    role: 'ECLIPSE',
+    title: 'Líder da 4ª Divisão',
+    desc: 'Dualidade e adaptação.',
+    img: '/images/leadership/lider-divisao-4.png',
+    ring: 2,
+    div: 'eclipse' as DivisionId,
+  },
 ];
 
 const muralPhotos = [
@@ -232,33 +360,73 @@ const rules = [
 ];
 
 const faqItems = [
-  { q: 'Como entro na Allied?', a: 'Abra um ticket no Discord da Allied e envie qualquer mensagem. A equipe orienta o próximo passo.' },
-  { q: 'Preciso jogar um título específico?', a: 'Não. A Allied é multi-jogo. O que importa é presença, disciplina e participação.' },
-  { q: 'O que são as divisões?', a: 'Quatro frentes com identidades próprias: Chuva, Sangue, Abismo e Eclipse.' },
-  { q: 'Preciso estar no Discord?', a: 'Sim. O Discord é o centro de comunicação e organização.' },
-  { q: 'Existem eventos?', a: 'Sim. Treinos, tryouts e atividades conforme a organização da equipe.' },
-  { q: 'Posso entrar sendo iniciante?', a: 'Sim. Evolução depende de constância e presença.' },
-  { q: 'Como funciona a hierarquia?', a: 'Líder e Vice-Líder no comando. Cada divisão possui liderança própria.' },
-  { q: 'O teste define minha divisão para sempre?', a: 'Indica o alinhamento inicial. A trajetória também depende de presença e decisão da liderança.' },
+  {
+    q: 'Como entro na Allied?',
+    a: 'Abra um ticket no Discord da Allied e envie qualquer mensagem. A equipe orienta o próximo passo.',
+  },
+  {
+    q: 'Preciso jogar um título específico?',
+    a: 'Não. A Allied é multi-jogo. O que importa é presença, disciplina e participação.',
+  },
+  {
+    q: 'O que são as divisões?',
+    a: 'Quatro frentes com identidades próprias: Chuva, Sangue, Abismo e Eclipse. O teste indica o alinhamento mais próximo do seu perfil.',
+  },
+  {
+    q: 'Preciso estar no Discord?',
+    a: 'Sim. O Discord é o centro de comunicação e organização.',
+  },
+  {
+    q: 'Existem eventos?',
+    a: 'Sim. Treinos, tryouts e atividades conforme a organização da equipe.',
+  },
+  {
+    q: 'Posso entrar sendo iniciante?',
+    a: 'Sim. Evolução depende de constância e presença.',
+  },
+  {
+    q: 'Como funciona a hierarquia?',
+    a: 'Líder e Vice-Líder no comando. Cada divisão possui liderança própria.',
+  },
+  {
+    q: 'O teste define minha divisão para sempre?',
+    a: 'Indica o alinhamento inicial. A trajetória também depende de presença e decisão da liderança.',
+  },
 ];
 
+/** Transmissões narrativas — índice do dia (sem backend) */
 const transmissions = [
-  { code: 'TX-07', title: 'ESTRUTURA ATIVA', body: 'A organização permanece em operação. Presença continua sendo o critério.' },
-  { code: 'TX-12', title: 'SINAL ESTÁVEL', body: 'Canais oficiais operando. Abra ticket apenas quando estiver pronto para o processo.' },
-  { code: 'TX-03', title: 'TERRITÓRIO ABERTO', body: 'As quatro regiões permanecem acessíveis. Explore antes de solicitar ingresso.' },
-  { code: 'TX-19', title: 'PROTOCOLO DE ENTRADA', body: 'Discord → ticket → orientação. Não há atalho fora da estrutura.' },
+  { code: 'TX-07', status: 'ESTÁVEL', title: 'ESTRUTURA ATIVA', body: 'A organização permanece em operação. Presença continua sendo o critério.' },
+  { code: 'TX-12', status: 'ATIVA', title: 'SINAL ESTÁVEL', body: 'Canais oficiais operando. Abra ticket apenas quando estiver pronto para o processo.' },
+  { code: 'TX-03', status: 'ABERTA', title: 'TERRITÓRIO ABERTO', body: 'As quatro regiões permanecem acessíveis. Explore antes de solicitar ingresso.' },
+  { code: 'TX-19', status: 'PROTOCOLO', title: 'ENTRADA OFICIAL', body: 'Discord → ticket → orientação. Não há atalho fora da estrutura.' },
+  { code: 'TX-21', status: 'LATENTE', title: 'CLASSIFICAÇÃO', body: 'O sistema de alinhamento permanece disponível. Dez decisões. Uma divisão.' },
+  { code: 'TX-05', status: 'MONITOR', title: 'PRESENÇA', body: 'O Allied Pass registra passagem. O que você explora deixa marca.' },
 ];
 
-const archiveFragments = [
-  { id: 'A-01', label: 'FRAGMENTO', text: 'Quem grita primeiro raramente decide o fim.' },
-  { id: 'A-02', label: 'REGISTRO', text: 'A estrutura não pede volume. Pede constância.' },
-  { id: 'A-03', label: 'NOTA', text: 'Quatro regiões. Uma assinatura. Nenhuma é decoração.' },
-  { id: 'A-04', label: 'SINAL', text: 'Presença registrada não se anuncia. Se acumula.' },
-  { id: 'A-05', label: 'OBSERVAÇÃO', text: 'Entrar é o começo. Permanecer é o teste real.' },
-  { id: 'A-06', label: 'MARCA', text: 'Os sigilos não são enfeite. São mapa.' },
+function dayTxIndex(): number {
+  const d = new Date();
+  const seed = d.getFullYear() * 1000 + d.getMonth() * 40 + d.getDate();
+  return seed % transmissions.length;
+}
+
+type ArchiveFrag = {
+  id: string;
+  label: string;
+  text: string;
+  unlock: keyof PassState | 'all-divisions';
+};
+
+const archiveFragments: ArchiveFrag[] = [
+  { id: 'A-01', label: 'FRAGMENTO', text: 'Quem grita primeiro raramente decide o fim.', unlock: 'chuva' },
+  { id: 'A-02', label: 'REGISTRO', text: 'A estrutura não pede volume. Pede constância.', unlock: 'sangue' },
+  { id: 'A-03', label: 'NOTA', text: 'Quatro regiões. Uma assinatura. Nenhuma é decoração.', unlock: 'abismo' },
+  { id: 'A-04', label: 'SINAL', text: 'Presença registrada não se anuncia. Se acumula.', unlock: 'eclipse' },
+  { id: 'A-05', label: 'OBSERVAÇÃO', text: 'Entrar é o começo. Permanecer é o teste real.', unlock: 'test' },
+  { id: 'A-06', label: 'MARCA', text: 'Os sigilos não são enfeite. São mapa.', unlock: 'all-divisions' },
 ];
 
-/* ——— SIGILS ——— */
+/* ——— SIGILOS ——— */
 function SigilChuva({ size = 48, className = '' }: { size?: number; className?: string }) {
   return (
     <svg className={`sigil sigil-chuva ${className}`} width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden>
@@ -318,6 +486,7 @@ function SigilFor({ id, size = 48, className = '' }: { id: DivisionId; size?: nu
   return <SigilEclipse size={size} className={className} />;
 }
 
+/** Núcleo da Allied — união dos quatro eixos */
 function AlliedMark({ size = 72, className = '' }: { size?: number; className?: string }) {
   return (
     <svg className={`allied-mark ${className}`} width={size} height={size} viewBox="0 0 96 96" fill="none" aria-hidden>
@@ -342,38 +511,37 @@ function LogoMark({ size = 48 }: { size?: number }) {
   );
 }
 
-function AmbientLayer({ mouse }: { mouse: { x: number; y: number } }) {
-  const mx = (mouse.x - 0.5) * 48;
-  const my = (mouse.y - 0.5) * 36;
+/** Ambiente global — intensidade via data-attr no root (CSS) */
+function AmbientLayer() {
   return (
     <div className="ambient" aria-hidden>
-      <div className="ambient-glow" style={{ transform: `translate(${mx * 0.45}px, ${my * 0.45}px)` }} />
-      <div className="sakura-field" style={{ transform: `translate(${mx * 0.18}px, ${my * 0.12}px)` }}>
-        {Array.from({ length: 18 }).map((_, i) => (
+      <div className="ambient-glow" />
+      <div className="sakura-field">
+        {Array.from({ length: 16 }).map((_, i) => (
           <span
             key={i}
             className={`petal p-${(i % 5) + 1}`}
             style={{
-              left: `${(i * 5.5 + 2) % 100}%`,
-              animationDelay: `${(i * 0.85) % 14}s`,
-              animationDuration: `${13 + (i % 9)}s`,
-              width: `${8 + (i % 6) * 2}px`,
-              height: `${8 + (i % 6) * 2}px`,
-              opacity: 0.22 + (i % 4) * 0.07,
-            }}
+              left: `${(i * 6.1 + 2) % 100}%`,
+              animationDelay: `${(i * 0.9) % 14}s`,
+              animationDuration: `${14 + (i % 8)}s`,
+              width: `${8 + (i % 5) * 2}px`,
+              height: `${8 + (i % 5) * 2}px`,
+              ['--petal-i' as string]: String(i),
+            } as CSSProperties}
           />
         ))}
       </div>
-      <div className="glyph-field" style={{ transform: `translate(${mx * -0.2}px, ${my * -0.14}px)` }}>
+      <div className="glyph-field">
         {FALLING_CHARS.map((ch, i) => (
           <span
             key={i}
             className={`glyph g-${(i % 3) + 1}`}
             style={{
-              left: `${2 + ((i * 4.8) % 96)}%`,
-              animationDelay: `${(i * 0.8) % 15}s`,
-              animationDuration: `${15 + (i % 8)}s`,
-              fontSize: `${12 + (i % 6) * 2}px`,
+              left: `${3 + ((i * 5.2) % 94)}%`,
+              animationDelay: `${(i * 0.85) % 15}s`,
+              animationDuration: `${16 + (i % 7)}s`,
+              fontSize: `${12 + (i % 5) * 2}px`,
             }}
           >
             {ch}
@@ -385,19 +553,20 @@ function AmbientLayer({ mouse }: { mouse: { x: number; y: number } }) {
   );
 }
 
-function DivisionFX({ id, mouse }: { id: DivisionId; mouse: { x: number; y: number } }) {
+/** FX de divisão — só anima quando .fx-live (IntersectionObserver) */
+function DivisionFX({ id }: { id: DivisionId }) {
   if (id === 'chuva') {
     return (
-      <div className="dw-fx" aria-hidden>
-        {Array.from({ length: 48 }).map((_, i) => (
+      <div className="dw-fx" data-fx="chuva" aria-hidden>
+        {Array.from({ length: 36 }).map((_, i) => (
           <span
             key={i}
             className="drop"
             style={{
-              left: `${(i * 2.1) % 100}%`,
-              animationDelay: `${(i * 0.08) % 2}s`,
-              animationDuration: `${0.6 + (i % 5) * 0.12}s`,
-              height: `${12 + (i % 8) * 4}px`,
+              left: `${(i * 2.7) % 100}%`,
+              animationDelay: `${(i * 0.09) % 2}s`,
+              animationDuration: `${0.65 + (i % 5) * 0.12}s`,
+              height: `${12 + (i % 7) * 4}px`,
               opacity: 0.28 + (i % 4) * 0.1,
             }}
           />
@@ -407,15 +576,15 @@ function DivisionFX({ id, mouse }: { id: DivisionId; mouse: { x: number; y: numb
   }
   if (id === 'sangue') {
     return (
-      <div className="dw-fx" aria-hidden>
-        {Array.from({ length: 14 }).map((_, i) => (
+      <div className="dw-fx" data-fx="sangue" aria-hidden>
+        {Array.from({ length: 12 }).map((_, i) => (
           <span
             key={i}
             className="drip"
             style={{
-              left: `${6 + i * 6.5}%`,
-              animationDelay: `${(i * 0.4) % 4}s`,
-              height: `${44 + (i % 5) * 24}px`,
+              left: `${8 + i * 7}%`,
+              animationDelay: `${(i * 0.42) % 4}s`,
+              height: `${44 + (i % 5) * 22}px`,
               width: `${2 + (i % 3)}px`,
             }}
           />
@@ -425,15 +594,15 @@ function DivisionFX({ id, mouse }: { id: DivisionId; mouse: { x: number; y: numb
   }
   if (id === 'abismo') {
     return (
-      <div className="dw-fx" aria-hidden>
-        {Array.from({ length: 36 }).map((_, i) => (
+      <div className="dw-fx" data-fx="abismo" aria-hidden>
+        {Array.from({ length: 28 }).map((_, i) => (
           <span
             key={i}
             className="void-dot"
             style={{
-              left: `${(i * 2.7) % 100}%`,
-              top: `${(i * 4.1) % 100}%`,
-              animationDelay: `${(i * 0.2) % 6}s`,
+              left: `${(i * 3.4) % 100}%`,
+              top: `${(i * 4.6) % 100}%`,
+              animationDelay: `${(i * 0.22) % 6}s`,
               width: `${2 + (i % 5)}px`,
               height: `${2 + (i % 5)}px`,
             }}
@@ -443,11 +612,8 @@ function DivisionFX({ id, mouse }: { id: DivisionId; mouse: { x: number; y: numb
     );
   }
   return (
-    <div className="dw-fx" aria-hidden>
-      <div
-        className="eclipse-system"
-        style={{ transform: `translate(${(mouse.x - 0.5) * 36}px, ${(mouse.y - 0.5) * 18}px)` }}
-      >
+    <div className="dw-fx" data-fx="eclipse" aria-hidden>
+      <div className="eclipse-system">
         <div className="ecl-body" />
         <div className="ecl-mask" />
         <div className="ecl-ring" />
@@ -456,40 +622,52 @@ function DivisionFX({ id, mouse }: { id: DivisionId; mouse: { x: number; y: numb
   );
 }
 
-type PassState = {
-  chuva: boolean;
-  sangue: boolean;
-  abismo: boolean;
-  eclipse: boolean;
-  test: boolean;
-  archives: boolean;
-};
-
 function loadPass(): PassState {
+  const emptyPass: PassState = { chuva: false, sangue: false, abismo: false, eclipse: false, test: false, archives: false };
+
   try {
     const raw = localStorage.getItem(PASS_KEY);
-    if (raw) return { ...{ chuva: false, sangue: false, abismo: false, eclipse: false, test: false, archives: false }, ...JSON.parse(raw) };
+    const archiveRaw = localStorage.getItem(ARCHIVE_KEY);
+    const archiveUnlocked = archiveRaw ? !!JSON.parse(archiveRaw) : false;
+
+    if (raw) {
+      return {
+        ...emptyPass,
+        ...JSON.parse(raw),
+        archives: archiveUnlocked || !!JSON.parse(raw).archives,
+      };
+    }
+
+    return {
+      ...emptyPass,
+      archives: archiveUnlocked,
+    };
   } catch { /* */ }
-  return { chuva: false, sangue: false, abismo: false, eclipse: false, test: false, archives: false };
+
+  return { ...emptyPass };
 }
 
 function App() {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const musicTried = useRef(false);
+  const unlockTried = useRef(false);
+  const rafRef = useRef(0);
+  const targetMouse = useRef({ x: 0.5, y: 0.5 });
+  const smoothMouse = useRef({ x: 0.5, y: 0.5 });
+
   const [menuOpen, setMenuOpen] = useState(false);
+  const [passOpen, setPassOpen] = useState(false);
   const [musicOn, setMusicOn] = useState(true);
-  const [mouse, setMouse] = useState({ x: 0.5, y: 0.5 });
   const [active, setActive] = useState<SectionId>('home');
   const [quizStep, setQuizStep] = useState(0);
   const [answers, setAnswers] = useState<(number | undefined)[]>(Array(10).fill(undefined));
   const [result, setResult] = useState<{ division: DivisionId; scores: DivisionScores } | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [pass, setPass] = useState<PassState>(() => loadPass());
-  const [txIndex, setTxIndex] = useState(0);
+  const [txIndex, setTxIndex] = useState(() => dayTxIndex());
   const [archiveOpen, setArchiveOpen] = useState<number | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const musicTried = useRef(false);
-  const unlockTried = useRef(false);
-  const rafRef = useRef(0);
-  const targetMouse = useRef({ x: 0.5, y: 0.5 });
+  const [openingDone, setOpeningDone] = useState(false);
 
   const stampPass = useCallback((key: keyof PassState) => {
     setPass((prev) => {
@@ -497,6 +675,9 @@ function App() {
       const next = { ...prev, [key]: true };
       try {
         localStorage.setItem(PASS_KEY, JSON.stringify(next));
+        if (key === 'archives') {
+          localStorage.setItem(ARCHIVE_KEY, JSON.stringify(true));
+        }
       } catch { /* */ }
       return next;
     });
@@ -504,44 +685,78 @@ function App() {
 
   const scrollTo = useCallback((id: SectionId) => {
     setMenuOpen(false);
+    setPassOpen(false);
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, []);
 
+  /* Mouse → CSS variables (sem setState) */
   useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+
     const onMove = (e: MouseEvent) => {
-      targetMouse.current = { x: e.clientX / window.innerWidth, y: e.clientY / window.innerHeight };
+      targetMouse.current = {
+        x: e.clientX / window.innerWidth,
+        y: e.clientY / window.innerHeight,
+      };
     };
     window.addEventListener('mousemove', onMove, { passive: true });
+
     const tick = () => {
-      setMouse((p) => ({
-        x: p.x + (targetMouse.current.x - p.x) * 0.07,
-        y: p.y + (targetMouse.current.y - p.y) * 0.07,
-      }));
+      const s = smoothMouse.current;
+      const t = targetMouse.current;
+      s.x += (t.x - s.x) * 0.08;
+      s.y += (t.y - s.y) * 0.08;
+      root.style.setProperty('--mx', s.x.toFixed(4));
+      root.style.setProperty('--my', s.y.toFixed(4));
+      root.style.setProperty('--mx-px', `${((s.x - 0.5) * 48).toFixed(2)}px`);
+      root.style.setProperty('--my-px', `${((s.y - 0.5) * 32).toFixed(2)}px`);
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
+
     return () => {
       window.removeEventListener('mousemove', onMove);
       cancelAnimationFrame(rafRef.current);
     };
   }, []);
 
+  /* Opening progressivo */
   useEffect(() => {
-    const ids = SECTIONS.map((s) => s.id);
-    const nodes = ids.map((id) => document.getElementById(id)).filter(Boolean) as HTMLElement[];
-    const observer = new IntersectionObserver(
+    const t = window.setTimeout(() => setOpeningDone(true), 2200);
+    return () => clearTimeout(t);
+  }, []);
+
+  /* Section observer + FX live + reveal */
+  useEffect(() => {
+    const sectionNodes = JOURNEY.map((id) => document.getElementById(id)).filter(Boolean) as HTMLElement[];
+    const sectionObs = new IntersectionObserver(
       (entries) => {
-        const vis = entries.filter((e) => e.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+        const vis = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
         const id = vis[0]?.target?.id as SectionId | undefined;
-        if (id) {
-          setActive(id);
-          if (id === 'chuva' || id === 'sangue' || id === 'abismo' || id === 'eclipse') stampPass(id);
-          if (id === 'archives') stampPass('archives');
-        }
+        if (!id) return;
+        setActive(id);
+        if (id === 'chuva' || id === 'sangue' || id === 'abismo' || id === 'eclipse') stampPass(id);
+        if (id === 'archives') stampPass('archives');
       },
-      { threshold: [0.2, 0.35, 0.5], rootMargin: '-18% 0px -30% 0px' }
+      { threshold: [0.18, 0.32, 0.48], rootMargin: '-16% 0px -28% 0px' }
     );
-    nodes.forEach((n) => observer.observe(n));
+    sectionNodes.forEach((n) => sectionObs.observe(n));
+
+    const fxNodes = document.querySelectorAll<HTMLElement>('.dw-fx, .region.division-world');
+    const fxObs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          const el = e.target as HTMLElement;
+          if (e.isIntersecting) el.classList.add('fx-live');
+          else el.classList.remove('fx-live');
+        });
+      },
+      { threshold: 0.08, rootMargin: '10% 0px' }
+    );
+    fxNodes.forEach((n) => fxObs.observe(n));
 
     const revealObs = new IntersectionObserver(
       (entries) => {
@@ -549,21 +764,26 @@ function App() {
           if (e.isIntersecting) e.target.classList.add('is-visible');
         });
       },
-      { threshold: 0.12, rootMargin: '0px 0px -8% 0px' }
+      { threshold: 0.1, rootMargin: '0px 0px -6% 0px' }
     );
     document.querySelectorAll('.reveal').forEach((el) => revealObs.observe(el));
 
     return () => {
-      observer.disconnect();
+      sectionObs.disconnect();
+      fxObs.disconnect();
       revealObs.disconnect();
     };
   }, [stampPass]);
 
+  /* Rotação lenta de transmissão (a partir do índice do dia) */
   useEffect(() => {
-    const t = window.setInterval(() => setTxIndex((i) => (i + 1) % transmissions.length), 8000);
+    const t = window.setInterval(() => {
+      setTxIndex((i) => (i + 1) % transmissions.length);
+    }, 10000);
     return () => clearInterval(t);
   }, []);
 
+  /* Áudio */
   useEffect(() => {
     const audio = new Audio('/audio/japanese-ambient.mp3');
     audio.loop = true;
@@ -633,10 +853,10 @@ function App() {
         scores[k] += w[k] ?? 0;
       });
     });
-    const ordered = (Object.entries(scores) as [DivisionId, number][]).sort((a, b) => b[1] - a[1]);
-    setResult({ division: ordered[0][0], scores });
+    const division = resolveDivision(scores, answers);
+    setResult({ division, scores });
     stampPass('test');
-    stampPass(ordered[0][0]);
+    stampPass(division);
   };
 
   const resetTest = () => {
@@ -650,24 +870,54 @@ function App() {
     [answers]
   );
 
-  const passCount = useMemo(
-    () => Object.values(pass).filter(Boolean).length,
-    [pass]
+  const passCount = useMemo(() => Object.values(pass).filter(Boolean).length, [pass]);
+
+  const allDivisions =
+    pass.chuva && pass.sangue && pass.abismo && pass.eclipse;
+
+  const isArchiveUnlocked = useCallback(
+    (frag: ArchiveFrag) => {
+      if (frag.unlock === 'all-divisions') return allDivisions;
+      return pass[frag.unlock];
+    },
+    [pass, allDivisions]
+  );
+
+  const unlockedArchives = useMemo(
+    () => archiveFragments.filter((f) => isArchiveUnlocked(f)).length,
+    [isArchiveUnlocked]
   );
 
   const themeClass =
     active === 'chuva' || active === 'sangue' || active === 'abismo' || active === 'eclipse'
       ? `theme-${active}`
-      : active === 'test' || active === 'join' || active === 'signal'
+      : active === 'test' || active === 'join'
         ? 'theme-core theme-ember'
         : 'theme-core';
 
-  const activeIndex = SECTIONS.findIndex((s) => s.id === active);
+  const ambientIntensity =
+    active === 'home'
+      ? 'amb-strong'
+      : active === 'test' || active === 'rules' || active === 'faq'
+        ? 'amb-low'
+        : active === 'chuva' || active === 'sangue' || active === 'abismo' || active === 'eclipse'
+          ? `amb-div amb-${active}`
+          : 'amb-mid';
+
+  const activeRailIndex = Math.max(
+    0,
+    RAIL_NODES.findIndex((n) => n.id === active)
+  );
+
   const tx = transmissions[txIndex];
 
   return (
-    <div className={`allied-root continuous ${themeClass} ${musicOn ? 'music-live' : ''} ${passCount >= 6 ? 'pass-complete' : ''}`}>
-      <AmbientLayer mouse={mouse} />
+    <div
+      ref={rootRef}
+      className={`allied-root continuous ${themeClass} ${ambientIntensity} ${musicOn ? 'music-live' : ''} ${passCount >= 6 ? 'pass-complete' : ''} ${openingDone ? 'opening-done' : 'opening'}`}
+      style={{ '--mx': '0.5', '--my': '0.5' } as CSSProperties}
+    >
+      <AmbientLayer />
 
       <header className="topbar">
         <button type="button" className="brand" onClick={() => scrollTo('home')}>
@@ -680,11 +930,21 @@ function App() {
           {menuOpen ? <X size={18} /> : <Menu size={18} />}
         </button>
         <nav className={menuOpen ? 'nav open' : 'nav'}>
-          {SECTIONS.filter((s) => !['join', 'rules', 'archives'].includes(s.id)).map((item) => (
+          {ACT_NAV.map((item) => (
             <button
               key={item.id}
               type="button"
-              className={active === item.id ? 'nav-link active' : 'nav-link'}
+              className={
+                (item.id === 'home' && (active === 'home' || active === 'allied')) ||
+                (item.id === 'mural' && (active === 'mural' || active === 'hierarchy')) ||
+                (item.id === 'chuva' &&
+                  (active === 'chuva' || active === 'sangue' || active === 'abismo' || active === 'eclipse')) ||
+                (item.id === 'test' && active === 'test') ||
+                (item.id === 'signal' && (active === 'signal' || active === 'archives')) ||
+                (item.id === 'join' && (active === 'join' || active === 'rules' || active === 'faq'))
+                  ? 'nav-link active'
+                  : 'nav-link'
+              }
               onClick={() => scrollTo(item.id)}
             >
               {item.label}
@@ -696,70 +956,98 @@ function App() {
         </nav>
       </header>
 
-      <aside className="journey-rail" aria-label="Jornada">
+      {/* Sistema interno — rail */}
+      <aside className="journey-rail system-rail" aria-label="Sistema Allied">
         <div className="rail-track">
-          <div className="rail-fill" style={{ height: `${(activeIndex / Math.max(SECTIONS.length - 1, 1)) * 100}%` }} />
+          <div
+            className="rail-fill"
+            style={{ height: `${(activeRailIndex / Math.max(RAIL_NODES.length - 1, 1)) * 100}%` }}
+          />
         </div>
-        {SECTIONS.map((s) => (
+        {RAIL_NODES.map((n) => (
           <button
-            key={s.id}
+            key={n.id}
             type="button"
-            className={`rail-dot ${active === s.id ? 'active' : ''} ${s.id}`}
-            title={s.label}
-            onClick={() => scrollTo(s.id)}
+            className={`rail-dot ${active === n.id ? 'active' : ''} ${n.id} ${n.sigil ? `sig-${n.sigil}` : ''}`}
+            title={n.label}
+            onClick={() => scrollTo(n.id)}
           >
-            <span>{s.label}</span>
+            {n.sigil ? <SigilFor id={n.sigil} size={12} className="rail-sigil" /> : <i className="rail-core" />}
+            <span>{n.label}</span>
           </button>
         ))}
       </aside>
 
-      <div className="allied-pass" aria-label="Allied Pass">
-        <span className="pass-title">ALLIED PASS</span>
-        <div className="pass-slots">
-          {(['chuva', 'sangue', 'abismo', 'eclipse'] as DivisionId[]).map((id) => (
-            <div key={id} className={`pass-slot ${pass[id] ? 'lit' : ''} slot-${id}`} title={divisionMeta[id].name}>
-              <SigilFor id={id} size={18} />
-            </div>
-          ))}
-          <div className={`pass-slot ${pass.test ? 'lit' : ''}`} title="Teste">
-            <AlliedMark size={16} />
+      {/* Allied Pass — registro + mobile sheet */}
+      <div className={`allied-pass ${passOpen ? 'expanded' : ''}`}>
+        <button type="button" className="pass-toggle" onClick={() => setPassOpen((v) => !v)} aria-label="Allied Pass">
+          <AlliedMark size={18} />
+          <span className="pass-title">PASS</span>
+          <span className="pass-count">{String(passCount).padStart(2, '0')}/06</span>
+        </button>
+        <div className="pass-panel">
+          <p className="pass-label">REGISTRO DE PRESENÇA</p>
+          <div className="pass-slots">
+            {(['chuva', 'sangue', 'abismo', 'eclipse'] as DivisionId[]).map((id) => (
+              <button
+                key={id}
+                type="button"
+                className={`pass-slot ${pass[id] ? 'lit' : ''} slot-${id}`}
+                title={divisionMeta[id].name}
+                onClick={() => scrollTo(id)}
+              >
+                <SigilFor id={id} size={18} />
+              </button>
+            ))}
+            <button
+              type="button"
+              className={`pass-slot ${pass.test ? 'lit' : ''}`}
+              title="Teste"
+              onClick={() => scrollTo('test')}
+            >
+              <AlliedMark size={16} />
+            </button>
+            <button
+              type="button"
+              className={`pass-slot ${pass.archives ? 'lit' : ''}`}
+              title="Arquivos"
+              onClick={() => scrollTo('archives')}
+            >
+              <span className="pass-dot" />
+            </button>
           </div>
-          <div className={`pass-slot ${pass.archives ? 'lit' : ''}`} title="Arquivos">
-            <span className="pass-dot" />
-          </div>
+          {passCount >= 6 && (
+            <p className="pass-done">PASS COMPLETO — a estrutura registrou sua passagem.</p>
+          )}
         </div>
-        <span className="pass-count">{String(passCount).padStart(2, '0')} / 06</span>
       </div>
 
       <main className="journey">
+        {/* ATO I — IDENTIDADE */}
         <section className="region home-world" id="home">
-          <div
-            className="home-orb"
-            style={{ transform: `translate(${(mouse.x - 0.5) * -36}px, ${(mouse.y - 0.5) * -24}px)` }}
-          />
-          <div className="home-hero reveal">
-            <div className="home-mark-wrap">
-              <AlliedMark size={88} className="home-mark" />
-            </div>
-            <p className="kicker">ORGANIZAÇÃO · MULTI-JOGO · PT-BR</p>
-            <h1>
-              <span className="line">ALLIED</span>
-              <span className="line accent">NÃO É UM LUGAR.</span>
-              <span className="line">É UMA ESTRUTURA.</span>
-            </h1>
-            <p className="lede">
-              Quatro divisões. Um comando. Role para atravessar o território — cada região carrega seu próprio sigilo.
-            </p>
-            <div className="home-actions">
-              <button type="button" className="btn primary" onClick={() => scrollTo('allied')}>
-                COMEÇAR A JORNADA <ArrowRight size={16} />
-              </button>
-              <button type="button" className="btn ghost" onClick={() => scrollTo('test')}>
-                IR AO TESTE
-              </button>
+          <div className="home-orb" />
+          <div className="home-hero">
+            <div className="opening-stage">
+              <div className="op-mark">
+                <AlliedMark size={96} className="home-mark" />
+              </div>
+              <p className="kicker op-kicker">ORGANIZAÇÃO · MULTI-JOGO · PT-BR</p>
+              <h1 className="op-title">
+                <span className="line">ALLIED</span>
+                <span className="line accent">NÃO É UM LUGAR.</span>
+                <span className="line">É UMA ESTRUTURA.</span>
+              </h1>
+              <p className="lede op-lede">
+                Quatro regiões. Um núcleo. Role para atravessar o território.
+              </p>
+              <div className="home-actions op-actions">
+                <button type="button" className="btn primary" onClick={() => scrollTo('allied')}>
+                  ENTRAR NO TERRITÓRIO <ArrowRight size={16} />
+                </button>
+              </div>
             </div>
           </div>
-          <div className="scroll-hint">
+          <div className="scroll-hint op-hint">
             <span>DESCER</span>
             <i />
           </div>
@@ -767,13 +1055,30 @@ function App() {
 
         <section className="region allied-world" id="allied">
           <div className="region-inner reveal">
-            <p className="kicker">O TERRITÓRIO</p>
+            <div className="nucleus-diagram" aria-hidden>
+              <AlliedMark size={64} />
+              <div className="nucleus-ring">
+                {(['chuva', 'sangue', 'abismo', 'eclipse'] as DivisionId[]).map((id, i) => (
+                  <button
+                    key={id}
+                    type="button"
+                    className={`nucleus-node nn-${id}`}
+                    style={{ ['--i' as string]: String(i) } as CSSProperties}
+                    onClick={() => scrollTo(id)}
+                    title={divisionMeta[id].name}
+                  >
+                    <SigilFor id={id} size={28} />
+                  </button>
+                ))}
+              </div>
+            </div>
+            <p className="kicker">NÚCLEO</p>
             <h2>
               Um universo.
-              <span> Quatro regiões.</span>
+              <span> Quatro eixos.</span>
             </h2>
             <p className="lede">
-              Cada frente possui sigilo, atmosfera e função. A Allied é a assinatura que as une.
+              A Allied é maior do que um único jogo. É estrutura, presença e quatro frentes que orbitam o mesmo centro.
             </p>
             <div className="home-grid">
               {(Object.keys(divisionMeta) as DivisionId[]).map((id) => (
@@ -790,14 +1095,38 @@ function App() {
           </div>
         </section>
 
+        {/* ATO II — ESTRUTURA */}
+        <section className="region mural-world" id="mural">
+          <div className="hw-head reveal">
+            <p className="kicker">PRESENÇA</p>
+            <h2>
+              Mural de
+              <span> memória</span>
+            </h2>
+            <p className="lede">Antes das regiões — as pessoas. Seis registros.</p>
+          </div>
+          <div className="mural-editorial">
+            {muralPhotos.map((p, i) => (
+              <figure
+                key={p.src}
+                className={`mural-item size-${p.size} reveal`}
+                style={{ transitionDelay: `${i * 50}ms` }}
+              >
+                <img src={p.src} alt={p.label} loading="lazy" />
+                <figcaption>{p.label}</figcaption>
+              </figure>
+            ))}
+          </div>
+        </section>
+
         <section className="region hierarchy-world" id="hierarchy">
           <div className="hw-head reveal">
-            <p className="kicker">ESTRUTURA DE COMANDO</p>
+            <p className="kicker">COMANDO</p>
             <h2>
               Hierarquia
               <span> orbital</span>
             </h2>
-            <p className="lede">Comando no centro. Divisões em órbita — cada líder carrega o sigilo da sua frente.</p>
+            <p className="lede">Centro e órbitas. Cada líder de divisão carrega o sigilo da sua frente.</p>
           </div>
           <div className="orbit reveal">
             <div className="orbit-ring r1" />
@@ -825,7 +1154,7 @@ function App() {
                     />
                     {node.div && (
                       <div className="on-sigil">
-                        <SigilFor id={node.div} size={28} />
+                        <SigilFor id={node.div} size={26} />
                       </div>
                     )}
                   </div>
@@ -863,13 +1192,14 @@ function App() {
           </div>
         </section>
 
+        {/* ATO III — QUATRO REGIÕES */}
         {(Object.keys(divisionMeta) as DivisionId[]).map((id, index) => {
           const meta = divisionMeta[id];
-          const nextId = (['sangue', 'abismo', 'eclipse', 'test'] as const)[index];
+          const nextBridge = (['sangue', 'abismo', 'eclipse', 'test'] as const)[index];
           return (
             <div key={id} className="division-block">
               <section className={`region division-world dw-${id}`} id={id}>
-                <DivisionFX id={id} mouse={mouse} />
+                <DivisionFX id={id} />
                 <div className="dw-sigil-stage" aria-hidden>
                   <SigilFor id={id} size={200} className="dw-sigil-hero" />
                 </div>
@@ -888,40 +1218,45 @@ function App() {
                   </div>
                 </div>
               </section>
-              <div className={`bridge bridge-${id}-to-${nextId}`} aria-hidden>
+              <div className={`bridge bridge-${id}-to-${nextBridge}`} aria-hidden>
                 <div className="bridge-particles" />
                 <div className="bridge-sigils">
                   <SigilFor id={id} size={28} />
-                  <AlliedMark size={22} />
+                  <AlliedMark size={20} />
                   {index < 3 ? (
-                    <SigilFor id={nextId as DivisionId} size={28} />
+                    <SigilFor id={nextBridge as DivisionId} size={28} />
                   ) : (
                     <AlliedMark size={28} />
                   )}
                 </div>
                 <span className="bridge-label">
-                  {index < 3 ? 'A REGIÃO SE TRANSFORMA' : 'O TERRITÓRIO ABRE O TESTE'}
+                  {index === 0 && 'A ÁGUA ESCURECE'}
+                  {index === 1 && 'A LUZ SOME'}
+                  {index === 2 && 'O VAZIO RECEBE LUZ'}
+                  {index === 3 && 'O SISTEMA SE CONCENTRA'}
                 </span>
               </div>
             </div>
           );
         })}
 
+        {/* ATO IV — CLASSIFICAÇÃO */}
         <section className="region test-world" id="test">
           <div className="tw-head reveal">
-            <AlliedMark size={48} className="tw-mark" />
-            <p className="kicker">SISTEMA DE CLASSIFICAÇÃO</p>
+            <AlliedMark size={44} className="tw-mark" />
+            <p className="kicker">SISTEMA INTERNO</p>
             <h2>
-              Teste de
-              <span> alinhamento</span>
+              Classificação
+              <span> de alinhamento</span>
             </h2>
-            <p className="lede">Dez decisões. Pesos internos. Uma divisão — e seu sigilo.</p>
+            <p className="lede">Dez decisões. Análise. Uma divisão.</p>
           </div>
 
           {result ? (
             <div className={`result-panel rp-${result.division} reveal`}>
+              <p className="rp-process">ANÁLISE CONCLUÍDA</p>
               <div className="result-sigil">
-                <SigilFor id={result.division} size={96} className="result-sigil-anim" />
+                <SigilFor id={result.division} size={100} className="result-sigil-anim" />
               </div>
               <p className="rp-label">VOCÊ FOI CLASSIFICADO</p>
               <h3>{divisionMeta[result.division].full}</h3>
@@ -944,19 +1279,24 @@ function App() {
                 })}
               </div>
               <div className="home-actions">
-                <button type="button" className="btn primary" onClick={() => scrollTo(result.division)}>
-                  VER A REGIÃO
+                <button type="button" className="btn ghost" onClick={() => scrollTo(result.division)}>
+                  VER MINHA DIVISÃO
+                </button>
+                <button type="button" className="btn primary" onClick={() => scrollTo('join')}>
+                  ENTRAR NA ALLIED <ArrowRight size={14} />
                 </button>
                 <button type="button" className="btn ghost" onClick={resetTest}>
                   REFAZER
-                </button>
-                <button type="button" className="btn primary" onClick={() => scrollTo('join')}>
-                  INGRESSO
                 </button>
               </div>
             </div>
           ) : (
             <div className="quiz-panel reveal">
+              <div className="qp-latent" aria-hidden>
+                {(['chuva', 'sangue', 'abismo', 'eclipse'] as DivisionId[]).map((id) => (
+                  <SigilFor key={id} id={id} size={20} className="latent-sigil" />
+                ))}
+              </div>
               <div className="qp-progress">
                 <span>
                   {String(quizStep + 1).padStart(2, '0')} / 10
@@ -993,25 +1333,30 @@ function App() {
                   disabled={answers[quizStep] === undefined}
                   onClick={() => (quizStep === 9 ? finishTest() : setQuizStep((s) => s + 1))}
                 >
-                  {quizStep === 9 ? 'REVELAR DIVISÃO' : 'PRÓXIMA'} <ArrowRight size={14} />
+                  {quizStep === 9 ? 'CONCLUIR ANÁLISE' : 'PRÓXIMA'} <ArrowRight size={14} />
                 </button>
               </div>
             </div>
           )}
         </section>
 
+        {/* ATO V — VIDA */}
         <section className="region signal-world" id="signal">
           <div className="signal-panel reveal">
+            <div className="signal-scan" aria-hidden />
             <div className="signal-head">
               <AlliedMark size={36} />
               <div>
                 <p className="kicker">SINAL DA ALLIED</p>
                 <span className="signal-code">{tx.code}</span>
               </div>
-              <span className="signal-live">TRANSMISSÃO</span>
+              <span className={`signal-live st-${tx.status.toLowerCase()}`}>{tx.status}</span>
             </div>
             <h2 className="signal-title">{tx.title}</h2>
             <p className="signal-body">{tx.body}</p>
+            <div className="signal-wave" aria-hidden>
+              <span /><span /><span /><span /><span />
+            </div>
             <div className="signal-dots">
               {transmissions.map((_, i) => (
                 <button
@@ -1026,25 +1371,6 @@ function App() {
           </div>
         </section>
 
-        <section className="region mural-world" id="mural">
-          <div className="hw-head reveal">
-            <p className="kicker">REGISTRO</p>
-            <h2>
-              Mural de
-              <span> presença</span>
-            </h2>
-            <p className="lede">Seis registros. Memória da estrutura.</p>
-          </div>
-          <div className="mural-editorial">
-            {muralPhotos.map((p, i) => (
-              <figure key={p.src} className={`mural-item size-${p.size} reveal`} style={{ transitionDelay: `${i * 40}ms` }}>
-                <img src={p.src} alt={p.label} loading="lazy" />
-                <figcaption>{p.label}</figcaption>
-              </figure>
-            ))}
-          </div>
-        </section>
-
         <section className="region archives-world" id="archives">
           <div className="archives-inner reveal">
             <p className="kicker">CLASSIFICADOS</p>
@@ -1052,38 +1378,50 @@ function App() {
               Arquivos
               <span> da estrutura</span>
             </h2>
-            <p className="lede quiet">Fragmentos. Não é um jogo — é presença registrada.</p>
+            <p className="lede quiet">
+              Desbloqueados pela exploração. {unlockedArchives} / 06 acessíveis.
+            </p>
             <div className="archive-grid">
-              {archiveFragments.map((frag, i) => (
-                <button
-                  key={frag.id}
-                  type="button"
-                  className={`archive-card ${archiveOpen === i ? 'open' : ''}`}
-                  onClick={() => setArchiveOpen(archiveOpen === i ? null : i)}
-                >
-                  <span className="arch-id">{frag.id}</span>
-                  <span className="arch-label">{frag.label}</span>
-                  <p>{archiveOpen === i ? frag.text : '·····'}</p>
-                </button>
-              ))}
+              {archiveFragments.map((frag, i) => {
+                const unlocked = isArchiveUnlocked(frag);
+                const open = archiveOpen === i && unlocked;
+                return (
+                  <button
+                    key={frag.id}
+                    type="button"
+                    className={`archive-card ${unlocked ? 'unlocked' : 'locked'} ${open ? 'open' : ''}`}
+                    onClick={() => {
+                      if (!unlocked) return;
+                      setArchiveOpen(open ? null : i);
+                    }}
+                    disabled={!unlocked}
+                  >
+                    <span className="arch-id">{frag.id}</span>
+                    <span className="arch-label">{unlocked ? frag.label : 'BLOQUEADO'}</span>
+                    <p>{open ? frag.text : unlocked ? '·····' : '········'}</p>
+                  </button>
+                );
+              })}
             </div>
             {passCount >= 6 && (
-              <p className="pass-complete-msg">
-                ALLIED PASS COMPLETO — a estrutura reconheceu sua passagem.
-              </p>
+              <p className="pass-complete-msg">ALLIED PASS COMPLETO — a estrutura reconheceu sua passagem.</p>
             )}
           </div>
         </section>
 
+        {/* ATO VI — INGRESSO */}
         <section className="region join-world" id="join">
           <div className="join-inner reveal">
-            <AlliedMark size={80} />
-            <p className="kicker">THE NEXT CHAPTER</p>
+            <AlliedMark size={80} className={passCount >= 6 ? 'mark-complete' : ''} />
+            <p className="kicker">PRÓXIMO PASSO</p>
             <h2>
-              Se você chegou até aqui,
-              <span> talvez seja hora de entrar.</span>
+              Você chegou até aqui.
+              <span> Existe um caminho de entrada.</span>
             </h2>
-            <p className="lede">A Allied está esperando por novos membros.</p>
+            <p className="lede">
+              Agora que conhece a estrutura
+              {result ? ` e foi alinhado à ${divisionMeta[result.division].name}` : ''}, o próximo passo é o Discord.
+            </p>
             <div className="home-actions">
               <a className="btn primary" href="https://discord.gg/UFUMMx5PkD" target="_blank" rel="noreferrer">
                 ABRIR MEU TICKET <ArrowUpRight size={16} />
