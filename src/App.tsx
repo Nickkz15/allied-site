@@ -1,20 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowDown,
+  ArrowLeft,
   ArrowRight,
   ArrowUpRight,
   Check,
   ChevronDown,
-  Crosshair,
   Crown,
   Droplets,
   Eclipse,
-  Gamepad2,
   Menu,
   MessageCircle,
   Moon,
-  MoveUpRight,
-  Quote,
   Shield,
   Volume2,
   VolumeX,
@@ -22,36 +18,258 @@ import {
   Zap,
 } from 'lucide-react';
 
-type DivisionId = 'chuva' | 'sangue' | 'abismo' | 'eclipse';
-type DivisionLabel = 'DIVISÃO DA CHUVA' | 'DIVISÃO DO SANGUE' | 'DIVISÃO DO ABISMO' | 'DIVISÃO DO ECLIPSE';
-type Attribute = 'comportamento' | 'disciplina' | 'liderança' | 'estratégia' | 'poder' | 'lealdade';
-type Answer = { label: string; scores: Partial<Record<Attribute, number>> };
-type Question = { number: string; title: string; prompt: string; answers: Answer[] };
-type Result = { name: string; division: DivisionLabel; scores: Record<Attribute, number> };
+type Page =
+  | 'home'
+  | 'hierarchy'
+  | 'test'
+  | 'mural'
+  | 'rules'
+  | 'faq'
+  | 'chuva'
+  | 'sangue'
+  | 'abismo'
+  | 'eclipse';
 
-const officialLinks = [
+type DivisionId = 'chuva' | 'sangue' | 'abismo' | 'eclipse';
+type DivisionScores = Record<DivisionId, number>;
+type Answer = { label: string; weights: Partial<DivisionScores> };
+type Question = { id: number; prompt: string; answers: Answer[] };
+
+const FALLING_CHARS = [
+  '桜', '月', '風', '雪', '龍', '夜', '光', '空', '夢', '影',
+  '炎', '剣', '魂', '絆', '静', '雷', '霧', '玄', '刃', '嵐',
+  '桜', '月', '風', '雪',
+];
+
+const NAV_ITEMS: { page: Page; label: string }[] = [
+  { page: 'home', label: 'INÍCIO' },
+  { page: 'chuva', label: 'CHUVA' },
+  { page: 'sangue', label: 'SANGUE' },
+  { page: 'abismo', label: 'ABISMO' },
+  { page: 'eclipse', label: 'ECLIPSE' },
+  { page: 'hierarchy', label: 'HIERARQUIA' },
+  { page: 'test', label: 'TESTE' },
+  { page: 'mural', label: 'MURAL' },
+  { page: 'rules', label: 'CÓDIGO' },
+  { page: 'faq', label: 'FAQ' },
+];
+
+const questions: Question[] = [
   {
-    label: 'DISCORD ALLIED',
-    title: 'Abra seu ticket',
-    description: 'O primeiro passo para encontrar seu lugar na estrutura.',
-    href: 'https://discord.gg/UFUMMx5PkD',
-    icon: Shield,
+    id: 1,
+    prompt: 'Uma operação começa a desmoronar. O plano original falhou. O que você faz primeiro?',
+    answers: [
+      { label: 'Congelo o cenário, recalculo rotas e só então ajo.', weights: { chuva: 3, abismo: 1 } },
+      { label: 'Assumo o risco e forço uma nova frente de impacto.', weights: { sangue: 3, eclipse: 1 } },
+      { label: 'Recuo para a sombra, observo falhas e espero o momento certo.', weights: { abismo: 3, chuva: 1 } },
+      { label: 'Alterno entre pressão e contenção conforme o ritmo muda.', weights: { eclipse: 3, chuva: 1 } },
+    ],
   },
   {
-    label: 'COMUNIDADE',
-    title: 'Espaço oficial',
-    description: 'Conecte-se, participe de eventos e cresça com a Allied.',
-    href: 'https://discord.gg/UFUMMx5PkD',
-    icon: MessageCircle,
+    id: 2,
+    prompt: 'Dois membros valiosos entram em conflito aberto. Como você intervém?',
+    answers: [
+      { label: 'Imponho silêncio imediato e redistribuo funções com frieza.', weights: { chuva: 3, sangue: 1 } },
+      { label: 'Deixo a tensão estourar e uso o resultado a favor do grupo.', weights: { sangue: 3 } },
+      { label: 'Ouço ambos em separado e decido sem exposição pública.', weights: { abismo: 3, eclipse: 1 } },
+      { label: 'Medio o confronto e transformo a divergência em acordo operacional.', weights: { eclipse: 3, chuva: 1 } },
+    ],
   },
   {
-    label: 'MULTIJOGOS',
-    title: 'Todos os frontes',
-    description: 'Uma organização aberta a diversos jogos e estilos de jogo.',
-    href: 'https://discord.gg/UFUMMx5PkD',
-    icon: Gamepad2,
+    id: 3,
+    prompt: 'Você recebe informação privilegiada que pode mudar o jogo — mas vazar agora também pode destruir alianças.',
+    answers: [
+      { label: 'Guardo até confirmar o impacto completo e o timing.', weights: { chuva: 2, abismo: 3 } },
+      { label: 'Uso imediatamente para dominar a situação antes de qualquer um.', weights: { sangue: 3 } },
+      { label: 'Compartilho só com quem precisa saber, em camadas controladas.', weights: { abismo: 3, eclipse: 1 } },
+      { label: 'Avalio o custo e revelo parcialmente para manter equilíbrio.', weights: { eclipse: 3, chuva: 1 } },
+    ],
+  },
+  {
+    id: 4,
+    prompt: 'Em uma disputa, o adversário provoca você pessoalmente. Qual é sua resposta?',
+    answers: [
+      { label: 'Ignoro. Provocação é ruído. Continuo o plano.', weights: { chuva: 3 } },
+      { label: 'Respondo com força suficiente para encerrar a conversa.', weights: { sangue: 3, eclipse: 1 } },
+      { label: 'Anoto o padrão e uso depois, quando for vantajoso.', weights: { abismo: 3 } },
+      { label: 'Espelho a intensidade dele só o necessário e devolvo o foco ao objetivo.', weights: { eclipse: 3 } },
+    ],
+  },
+  {
+    id: 5,
+    prompt: 'Você precisa montar uma equipe para uma missão crítica. O que prioriza?',
+    answers: [
+      { label: 'Precisão, disciplina e quem executa sem drama.', weights: { chuva: 3, abismo: 1 } },
+      { label: 'Quem empurra, pressiona e não recua sob fogo.', weights: { sangue: 3 } },
+      { label: 'Quem lê o campo e age com informação incompleta.', weights: { abismo: 3, chuva: 1 } },
+      { label: 'Um mix equilibrado: agressão, controle e adaptação.', weights: { eclipse: 3, chuva: 1, sangue: 1 } },
+    ],
+  },
+  {
+    id: 6,
+    prompt: 'Uma ordem da liderança entra em conflito com o que você considera mais eficiente.',
+    answers: [
+      { label: 'Executo com rigor e documento o que poderia ser melhor.', weights: { chuva: 3, abismo: 1 } },
+      { label: 'Adapto a ordem no limite e entrego resultado por força.', weights: { sangue: 2, eclipse: 2 } },
+      { label: 'Questiono em privado, com dados, antes de agir.', weights: { abismo: 2, chuva: 2 } },
+      { label: 'Cumpro o essencial e ajusto o método sem quebrar a estrutura.', weights: { eclipse: 3, chuva: 1 } },
+    ],
+  },
+  {
+    id: 7,
+    prompt: 'O grupo está perdendo moral depois de uma derrota. Qual é o seu papel?',
+    answers: [
+      { label: 'Reorganizo a rotina e corto o excesso emocional.', weights: { chuva: 3 } },
+      { label: 'Acendo o fogo: próxima vitória, sem discurso longo.', weights: { sangue: 3 } },
+      { label: 'Observo quem quebrou e reforço a estrutura por dentro.', weights: { abismo: 3 } },
+      { label: 'Equilibro contenção e impulso até o ritmo voltar.', weights: { eclipse: 3, sangue: 1 } },
+    ],
+  },
+  {
+    id: 8,
+    prompt: 'Você está sozinho em uma situação ambígua, sem instrução clara.',
+    answers: [
+      { label: 'Defino um protocolo mínimo e ajo com consistência.', weights: { chuva: 3, eclipse: 1 } },
+      { label: 'Tomo a iniciativa agressiva e crio movimento.', weights: { sangue: 3 } },
+      { label: 'Permaneço invisível até entender as variáveis ocultas.', weights: { abismo: 3 } },
+      { label: 'Testo duas abordagens em paralelo e escolho a que responde melhor.', weights: { eclipse: 3, chuva: 1 } },
+    ],
+  },
+  {
+    id: 9,
+    prompt: 'O que mais te incomoda em uma organização?',
+    answers: [
+      { label: 'Improviso sem método e desperdício de movimento.', weights: { chuva: 3 } },
+      { label: 'Passividade e medo de confrontar.', weights: { sangue: 3 } },
+      { label: 'Excesso de exposição e falta de controle de informação.', weights: { abismo: 3 } },
+      { label: 'Extremismo sem flexibilidade — só um lado do espectro.', weights: { eclipse: 3 } },
+    ],
+  },
+  {
+    id: 10,
+    prompt: 'No final, o que define sua presença em uma estrutura como a Allied?',
+    answers: [
+      { label: 'Consistência silenciosa. Resultado sem alarde.', weights: { chuva: 3, abismo: 1 } },
+      { label: 'Capacidade de impor ritmo e virar o jogo pela força.', weights: { sangue: 3 } },
+      { label: 'Leitura profunda e influência que poucos percebem.', weights: { abismo: 3, chuva: 1 } },
+      { label: 'Saber quando ser lâmina e quando ser escudo.', weights: { eclipse: 3, sangue: 1, chuva: 1 } },
+    ],
   },
 ];
+
+const divisionMeta: Record<
+  DivisionId,
+  {
+    name: string;
+    full: string;
+    code: string;
+    tagline: string;
+    profile: string;
+    traits: string[];
+    icon: typeof Droplets;
+  }
+> = {
+  chuva: {
+    name: 'Chuva',
+    full: 'DIVISÃO DA CHUVA',
+    code: '01',
+    tagline: 'Silêncio. Precisão. Pressão constante.',
+    profile:
+      'Você opera com frieza e método. Lê o cenário antes de se mover, corta ruído e transforma caos em sequência. Sua presença não grita — ela cobre o campo até não restar saída. Onde outros reagem, você calcula. Onde outros improvisam, você executa.',
+    traits: ['Estratégia', 'Paciência', 'Precisão', 'Controle'],
+    icon: Droplets,
+  },
+  sangue: {
+    name: 'Sangue',
+    full: 'DIVISÃO DO SANGUE',
+    code: '02',
+    tagline: 'Impacto. Domínio. Sem recuo.',
+    profile:
+      'Você empurra o confronto. Onde outros hesitam, você acelera. Sua força está na intensidade controlada: pressão que quebra linhas e força o adversário a ceder terreno. Não busca ruído vazio — busca resultado que deixe marca.',
+    traits: ['Agressão', 'Domínio', 'Intensidade', 'Iniciativa'],
+    icon: Zap,
+  },
+  abismo: {
+    name: 'Abismo',
+    full: 'DIVISÃO DO ABISMO',
+    code: '03',
+    tagline: 'Profundidade. Controle. O que não se vê.',
+    profile:
+      'Você age nas camadas que poucos monitoram. Informação, timing e paciência são suas armas. Sua influência chega antes da sua imagem — e permanece depois do barulho. O vazio não é ausência: é espaço para manobra.',
+    traits: ['Mistério', 'Profundidade', 'Controle', 'Paciência'],
+    icon: Moon,
+  },
+  eclipse: {
+    name: 'Eclipse',
+    full: 'DIVISÃO DO ECLIPSE',
+    code: '04',
+    tagline: 'Dualidade. Adaptação. Equilíbrio instável.',
+    profile:
+      'Você alterna entre pólos sem se perder. Sabe quando pressionar e quando conter, quando aparecer e quando sumir. Sua força é a capacidade de mudar o ritmo do jogo no momento certo — luz e sombra no mesmo gesto.',
+    traits: ['Equilíbrio', 'Dualidade', 'Adaptação', 'Versatilidade'],
+    icon: Eclipse,
+  },
+};
+
+const hierarchyNodes = [
+  {
+    id: 'leader',
+    role: 'LÍDER',
+    title: 'Comando da Allied',
+    desc: 'Direção absoluta da organização.',
+    img: '/images/leadership/lider-allied.png',
+    ring: 0,
+  },
+  {
+    id: 'vice',
+    role: 'VICE-LÍDER',
+    title: 'Coordenação central',
+    desc: 'Braço direito do comando.',
+    img: '/images/leadership/vice-lider-allied.png',
+    ring: 1,
+  },
+  {
+    id: 'd1',
+    role: 'CHUVA',
+    title: 'Líder da 1ª Divisão',
+    desc: 'Estratégia e precisão.',
+    img: '/images/leadership/lider-divisao-1.png',
+    ring: 2,
+    div: 'chuva' as DivisionId,
+  },
+  {
+    id: 'd2',
+    role: 'SANGUE',
+    title: 'Líder da 2ª Divisão',
+    desc: 'Impacto e domínio.',
+    img: '/images/leadership/lider-divisao-2.png',
+    ring: 2,
+    div: 'sangue' as DivisionId,
+  },
+  {
+    id: 'd3',
+    role: 'ABISMO',
+    title: 'Líder da 3ª Divisão',
+    desc: 'Profundidade e controle.',
+    img: '/images/leadership/lider-divisao-3.png',
+    ring: 2,
+    div: 'abismo' as DivisionId,
+  },
+  {
+    id: 'd4',
+    role: 'ECLIPSE',
+    title: 'Líder da 4ª Divisão',
+    desc: 'Dualidade e adaptação.',
+    img: '/images/leadership/lider-divisao-4.png',
+    ring: 2,
+    div: 'eclipse' as DivisionId,
+  },
+];
+
+const muralPhotos = Array.from({ length: 10 }, (_, i) => ({
+  src: `/images/mural/foto${i + 1}.png`,
+  label: `Lembrança - ${String(i + 1).padStart(2, '0')}`,
+}));
 
 const rules = [
   ['RESPEITO ACIMA DE TUDO', 'Sem ofensas, discriminação ou ataques pessoais entre membros.'],
@@ -66,392 +284,169 @@ const rules = [
   ['DECISÕES DA STAFF SÃO FINAIS', 'Discussões podem acontecer. Desobediência, não.'],
 ];
 
-const questions: Question[] = [
-  {
-    number: '01',
-    title: 'CONDUTA',
-    prompt: 'Uma provocação surge no chat antes de um confronto. Como você reage?',
-    answers: [
-      { label: 'Observo primeiro e respondo apenas quando a estratégia exigir.', scores: { comportamento: 3, estratégia: 2 } },
-      { label: 'Corto a tensão com humor, sem deixar o grupo perder o foco.', scores: { comportamento: 2, liderança: 2 } },
-      { label: 'Aceito o desafio e deixo minha atuação falar por mim.', scores: { poder: 3 } },
-      { label: 'Peço à liderança que decida se a resposta é necessária.', scores: { disciplina: 3, lealdade: 2 } },
-    ],
-  },
-  {
-    number: '02',
-    title: 'DISCIPLINA',
-    prompt: 'Você recebe uma ordem que não seria sua primeira escolha.',
-    answers: [
-      { label: 'Executo com precisão e registro o que poderia melhorar.', scores: { disciplina: 4, estratégia: 1 } },
-      { label: 'Faço perguntas rápidas para entender o objetivo completo.', scores: { liderança: 2, estratégia: 3 } },
-      { label: 'Adapto a ordem ao meu estilo e entrego o resultado.', scores: { poder: 2 } },
-      { label: 'Sigo o fluxo do grupo e cubro quem precisar.', scores: { lealdade: 3, comportamento: 2 } },
-    ],
-  },
-  {
-    number: '03',
-    title: 'PRESENÇA',
-    prompt: 'Quando você chega em um grupo novo, qual é sua postura?',
-    answers: [
-      { label: 'Leio o ambiente antes de ocupar espaço.', scores: { comportamento: 3, estratégia: 2 } },
-      { label: 'Me apresento e encontro rapidamente uma função.', scores: { liderança: 3 } },
-      { label: 'Procuro o membro mais experiente e ofereço apoio.', scores: { lealdade: 3, disciplina: 2 } },
-      { label: 'Deixo minhas ações criarem minha reputação.', scores: { poder: 3, comportamento: 2 } },
-    ],
-  },
-  {
-    number: '04',
-    title: 'EQUIPE',
-    prompt: 'Uma parte do time está atrasada para o evento.',
-    answers: [
-      { label: 'Reorganizo as tarefas para proteger o objetivo principal.', scores: { estratégia: 4, liderança: 1 } },
-      { label: 'Espero o time e mantenho todos informados.', scores: { lealdade: 3, comportamento: 2 } },
-      { label: 'Assumo uma função extra para ganhar tempo.', scores: { poder: 2 } },
-      { label: 'Aviso a liderança e sigo o plano que for definido.', scores: { disciplina: 4, lealdade: 1 } },
-    ],
-  },
-  {
-    number: '05',
-    title: 'CONFIANÇA',
-    prompt: 'O que sustenta uma organização forte?',
-    answers: [
-      { label: 'A capacidade de cumprir o combinado quando ninguém olha.', scores: { lealdade: 4, disciplina: 1 } },
-      { label: 'A soma de talentos diferentes em uma direção comum.', scores: { estratégia: 3, comportamento: 2 } },
-      { label: 'A presença de alguém disposto a assumir a frente.', scores: { liderança: 4, poder: 1 } },
-      { label: 'A coragem de continuar quando o cenário muda.', scores: { poder: 3 } },
-    ],
-  },
-  {
-    number: '06',
-    title: 'CONFLITO',
-    prompt: 'Dois membros discordam antes de uma decisão importante.',
-    answers: [
-      { label: 'Escuto ambos e encontro o ponto que protege a missão.', scores: { comportamento: 3, liderança: 2 } },
-      { label: 'Defendo minha leitura e aceito a decisão final.', scores: { poder: 2, disciplina: 3 } },
-      { label: 'Proponho um teste rápido para decidir com evidência.', scores: { estratégia: 4 } },
-      { label: 'Evito ampliar o conflito e sigo quem responde pelo grupo.', scores: { lealdade: 3, disciplina: 2 } },
-    ],
-  },
-  {
-    number: '07',
-    title: 'CORAGEM',
-    prompt: 'Qual é a sua definição de coragem?',
-    answers: [
-      { label: 'Entrar em ação mesmo quando o plano não é perfeito.', scores: { poder: 3 } },
-      { label: 'Manter a calma quando todos procuram uma reação.', scores: { comportamento: 3, disciplina: 2 } },
-      { label: 'Assumir a responsabilidade pelo efeito das próprias escolhas.', scores: { liderança: 3, lealdade: 2 } },
-      { label: 'Esperar o momento certo e não desperdiçar força.', scores: { estratégia: 4, disciplina: 1 } },
-    ],
-  },
-  {
-    number: '08',
-    title: 'ESTRATÉGIA',
-    prompt: 'O plano original deixa de funcionar no meio da operação.',
-    answers: [
-      { label: 'Improviso uma rota e mantenho o objetivo intacto.', scores: { estratégia: 4 } },
-      { label: 'Protejo a formação e aguardo uma nova instrução.', scores: { disciplina: 4, lealdade: 1 } },
-      { label: 'Assumo o risco de abrir uma nova frente.', scores: { poder: 4, liderança: 1 } },
-      { label: 'Procuro quem está com dificuldade e reorganizo o apoio.', scores: { comportamento: 2, lealdade: 3 } },
-    ],
-  },
-  {
-    number: '09',
-    title: 'RESPONSABILIDADE',
-    prompt: 'Você percebe que cometeu um erro.',
-    answers: [
-      { label: 'Aviso rapidamente e apresento uma forma de corrigir.', scores: { liderança: 2, lealdade: 3 } },
-      { label: 'Reparo o que for possível antes de chamar atenção.', scores: { disciplina: 2 } },
-      { label: 'Analiso a causa para não repetir o mesmo padrão.', scores: { estratégia: 3, comportamento: 2 } },
-      { label: 'Aceito a orientação de quem está responsável.', scores: { disciplina: 3, lealdade: 2 } },
-    ],
-  },
-  {
-    number: '10',
-    title: 'COMPETITIVIDADE',
-    prompt: 'O que uma derrota muda em você?',
-    answers: [
-      { label: 'Transformo o resultado em uma lista objetiva de ajustes.', scores: { estratégia: 3, disciplina: 2 } },
-      { label: 'Volto mais forte e procuro uma nova oportunidade.', scores: { poder: 3 } },
-      { label: 'Cuido para que o grupo não se fragmente depois do resultado.', scores: { lealdade: 3, liderança: 2 } },
-      { label: 'Aceito a derrota sem mudar meu respeito pelo adversário.', scores: { comportamento: 4, disciplina: 1 } },
-    ],
-  },
-  {
-    number: '11',
-    title: 'INICIATIVA',
-    prompt: 'Não existe uma tarefa definida para você.',
-    answers: [
-      { label: 'Encontro uma lacuna e proponho uma solução.', scores: { liderança: 1 } },
-      { label: 'Pergunto à liderança onde a presença é mais necessária.', scores: { disciplina: 3, lealdade: 2 } },
-      { label: 'Observo até entender a dinâmica do ambiente.', scores: { estratégia: 3, comportamento: 2 } },
-      { label: 'Me junto à função que parece mais exigente.', scores: { poder: 3 } },
-    ],
-  },
-  {
-    number: '12',
-    title: 'LEALDADE',
-    prompt: 'Um amigo pede para você ignorar uma regra da organização.',
-    answers: [
-      { label: 'Explico o motivo da regra e mantenho o limite.', scores: { lealdade: 3, comportamento: 2 } },
-      { label: 'Consulto a staff antes de tomar qualquer atitude.', scores: { disciplina: 4, lealdade: 1 } },
-      { label: 'Procuro uma alternativa permitida para ajudar.', scores: { estratégia: 3 } },
-      { label: 'Recuso, mesmo que isso gere uma conversa difícil.', scores: { poder: 2, lealdade: 3 } },
-    ],
-  },
-  {
-    number: '13',
-    title: 'LIDERANÇA',
-    prompt: 'O grupo precisa de direção, mas ninguém se manifesta.',
-    answers: [
-      { label: 'Assumo a frente, distribuo funções e ouço o retorno.', scores: { liderança: 4, comportamento: 1 } },
-      { label: 'Apresento uma leitura clara e deixo o grupo decidir.', scores: { estratégia: 3, liderança: 2 } },
-      { label: 'Começo a agir e crio movimento pelo exemplo.', scores: { poder: 2 } },
-      { label: 'Peço que a autoridade mais próxima confirme o caminho.', scores: { disciplina: 3, lealdade: 2 } },
-    ],
-  },
-  {
-    number: '14',
-    title: 'CONTROLE',
-    prompt: 'Uma situação começa a sair do controle durante a call.',
-    answers: [
-      { label: 'Reduzo o tom, organizo as vozes e retomo a pauta.', scores: { liderança: 3, comportamento: 2 } },
-      { label: 'Fico em silêncio até o momento de contribuir.', scores: { disciplina: 3, estratégia: 2 } },
-      { label: 'Interrompo o ruído e tomo uma decisão rápida.', scores: { poder: 3 } },
-      { label: 'Sigo a pessoa responsável e ajudo a manter o grupo unido.', scores: { lealdade: 3, comportamento: 2 } },
-    ],
-  },
-  {
-    number: '15',
-    title: 'TRAJETÓRIA',
-    prompt: 'O que você procura ao entrar na Allied?',
-    answers: [
-      { label: 'Um lugar para evoluir com constância e responsabilidade.', scores: { disciplina: 3, lealdade: 2 } },
-      { label: 'Um grupo onde presença e competência sejam reconhecidas.', scores: { poder: 2 } },
-      { label: 'Uma estrutura para aprender a liderar situações reais.', scores: { liderança: 4, estratégia: 1 } },
-      { label: 'Uma história coletiva da qual eu possa fazer parte.', scores: { comportamento: 2, lealdade: 3 } },
-    ],
-  },
-];
-
-const divisionResults: Record<DivisionLabel, { eyebrow: string; title: string; description: string }> = {
-  'DIVISÃO DA CHUVA': {
-    eyebrow: 'ESTRATÉGIA · SILÊNCIO · PRECISÃO',
-    title: 'Frio. Calculado. Inevitável.',
-    description:
-      'A Divisão da Chuva reúne quem age com frieza e leitura de cenário. Silêncio antes do movimento. Estratégia antes do impacto.',
-  },
-  'DIVISÃO DO SANGUE': {
-    eyebrow: 'AGRESSÃO · DOMÍNIO · INTENSIDADE',
-    title: 'Pressão constante. Sem recuo.',
-    description:
-      'A Divisão do Sangue é o braço ofensivo. Dominância, intensidade e presença que força o adversário a ceder.',
-  },
-  'DIVISÃO DO ABISMO': {
-    eyebrow: 'MISTÉRIO · PROFUNDIDADE · CONTROLE',
-    title: 'O vazio que observa.',
-    description:
-      'A Divisão do Abismo opera nas sombras da estrutura. Leitura profunda, paciência e controle de informações.',
-  },
-  'DIVISÃO DO ECLIPSE': {
-    eyebrow: 'EQUILÍBRIO · DUALIDADE · ADAPTAÇÃO',
-    title: 'Luz e sombra no mesmo movimento.',
-    description:
-      'A Divisão do Eclipse equilibra agressão e contenção. Adaptável, versátil e capaz de mudar o ritmo do confronto.',
-  },
-};
-
-const attributeLabels: Record<Attribute, string> = {
-  comportamento: 'COMPORTAMENTO',
-  disciplina: 'DISCIPLINA',
-  liderança: 'LIDERANÇA',
-  estratégia: 'ESTRATÉGIA',
-  poder: 'PODER',
-  lealdade: 'LEALDADE',
-};
-
-const attributeKeys: Attribute[] = ['comportamento', 'disciplina', 'liderança', 'estratégia', 'poder', 'lealdade'];
-
 const faqItems = [
-  { q: 'Como entro na Allied?', a: 'Abra um ticket no Discord da Allied e envie qualquer mensagem. A equipe irá orientar você.' },
-  { q: 'Preciso ser bom em um jogo específico?', a: 'Não. A Allied é aberta a diversos jogos e estilos. O que importa é presença, disciplina e participação.' },
-  { q: 'A Allied é só de um jogo?', a: 'Não. A Allied é uma organização multi-jogo, com estrutura própria, divisões e hierarquia independentes de um único título.' },
-  { q: 'Preciso estar no Discord?', a: 'Sim. O Discord é o principal espaço de comunicação e organização da Allied.' },
-  { q: 'Existem eventos e tryouts?', a: 'Sim. Eventos, treinos, tryouts e atividades podem ser realizados de acordo com a organização da equipe.' },
-  { q: 'Posso entrar mesmo sendo iniciante?', a: 'Sim. A Allied possui espaço para membros em diferentes níveis. O importante é disposição para participar e evoluir.' },
-  { q: 'Existe hierarquia?', a: 'Sim. A Allied possui Líder, Vice-Líder e quatro divisões com lideranças próprias.' },
-  { q: 'Como descubro minha divisão?', a: 'Realize o teste de recrutamento disponível no site. O resultado indica a divisão mais alinhada ao seu perfil.' },
-];
-
-const muralPhotos = [
-  { src: '/images/mural/foto1.png', label: 'Lembrança - 01' },
-  { src: '/images/mural/foto2.png', label: 'Lembrança - 02' },
-  { src: '/images/mural/foto3.png', label: 'Lembrança - 03' },
-  { src: '/images/mural/foto4.png', label: 'Lembrança - 04' },
-  { src: '/images/mural/foto5.png', label: 'Lembrança - 05' },
-  { src: '/images/mural/foto6.png', label: 'Lembrança - 06' },
-  { src: '/images/mural/foto7.png', label: 'Lembrança - 07' },
-  { src: '/images/mural/foto8.png', label: 'Lembrança - 08' },
-  { src: '/images/mural/foto9.png', label: 'Lembrança - 09' },
-  { src: '/images/mural/foto10.png', label: 'Lembrança - 10' },
-];
-
-const hierarchy = [
   {
-    role: 'LÍDER',
-    title: 'Líder da Allied',
-    desc: 'Comando absoluto da organização. Define a direção e protege a estrutura.',
-    img: '/images/leadership/lider-allied.png',
-    tier: 'top' as const,
+    q: 'Como entro na Allied?',
+    a: 'Abra um ticket no Discord da Allied e envie qualquer mensagem. A equipe orienta o próximo passo.',
   },
   {
-    role: 'VICE-LÍDER',
-    title: 'Vice-Líder da Allied',
-    desc: 'Braço direito do comando. Coordena operações e reforça a hierarquia.',
-    img: '/images/leadership/vice-lider-allied.png',
-    tier: 'top' as const,
+    q: 'Preciso jogar um título específico?',
+    a: 'Não. A Allied é multi-jogo. O que importa é presença, disciplina e participação.',
   },
   {
-    role: '1ª DIVISÃO',
-    title: 'Líder — Divisão da Chuva',
-    desc: 'Comando da Divisão da Chuva. Estratégia, frieza e precisão.',
-    img: '/images/leadership/lider-divisao-1.png',
-    tier: 'div' as const,
-    theme: 'chuva' as DivisionId,
+    q: 'O que são as divisões?',
+    a: 'Quatro frentes com identidades próprias: Chuva, Sangue, Abismo e Eclipse. O teste indica o alinhamento mais próximo do seu perfil.',
   },
   {
-    role: '2ª DIVISÃO',
-    title: 'Líder — Divisão do Sangue',
-    desc: 'Comando da Divisão do Sangue. Agressão, domínio e intensidade.',
-    img: '/images/leadership/lider-divisao-2.png',
-    tier: 'div' as const,
-    theme: 'sangue' as DivisionId,
+    q: 'Preciso estar no Discord?',
+    a: 'Sim. O Discord é o centro de comunicação e organização da Allied.',
   },
   {
-    role: '3ª DIVISÃO',
-    title: 'Líder — Divisão do Abismo',
-    desc: 'Comando da Divisão do Abismo. Mistério, profundidade e controle.',
-    img: '/images/leadership/lider-divisao-3.png',
-    tier: 'div' as const,
-    theme: 'abismo' as DivisionId,
+    q: 'Existem eventos e tryouts?',
+    a: 'Sim. Treinos, tryouts e atividades conforme a organização da equipe.',
   },
   {
-    role: '4ª DIVISÃO',
-    title: 'Líder — Divisão do Eclipse',
-    desc: 'Comando da Divisão do Eclipse. Dualidade, equilíbrio e adaptação.',
-    img: '/images/leadership/lider-divisao-4.png',
-    tier: 'div' as const,
-    theme: 'eclipse' as DivisionId,
+    q: 'Posso entrar sendo iniciante?',
+    a: 'Sim. Há espaço para diferentes níveis. Evolução depende de constância e presença.',
+  },
+  {
+    q: 'Como funciona a hierarquia?',
+    a: 'Líder e Vice-Líder no comando central. Cada divisão possui liderança própria responsável pela identidade e operação daquela frente.',
+  },
+  {
+    q: 'O teste define minha divisão para sempre?',
+    a: 'O teste indica o alinhamento inicial. A trajetória dentro da Allied também depende de presença, desempenho e decisão da liderança.',
   },
 ];
 
-const divisionsData = [
-  {
-    id: 'chuva' as DivisionId,
-    name: 'Divisão da Chuva',
-    short: 'Chuva',
-    tagline: 'Silêncio antes do impacto.',
-    description:
-      'Operam com frieza e leitura de cenário. Cada movimento é calculado. A chuva não grita — ela cobre tudo até não restar saída.',
-    traits: ['Estratégia', 'Paciência', 'Precisão'],
-    icon: Droplets,
-    code: '01',
-  },
-  {
-    id: 'sangue' as DivisionId,
-    name: 'Divisão do Sangue',
-    short: 'Sangue',
-    tagline: 'Pressão até o limite.',
-    description:
-      'O braço ofensivo da Allied. Intensidade, domínio e presença que força o adversário a ceder. Não recuam.',
-    traits: ['Agressão', 'Domínio', 'Intensidade'],
-    icon: Zap,
-    code: '02',
-  },
-  {
-    id: 'abismo' as DivisionId,
-    name: 'Divisão do Abismo',
-    short: 'Abismo',
-    tagline: 'O vazio que observa.',
-    description:
-      'Operam nas profundezas da estrutura. Controle de informação, paciência e uma presença que o adversário sente antes de ver.',
-    traits: ['Mistério', 'Profundidade', 'Controle'],
-    icon: Moon,
-    code: '03',
-  },
-  {
-    id: 'eclipse' as DivisionId,
-    name: 'Divisão do Eclipse',
-    short: 'Eclipse',
-    tagline: 'Luz e sombra no mesmo gesto.',
-    description:
-      'Equilíbrio entre agressão e contenção. Adaptáveis, versáteis e capazes de mudar o ritmo do confronto em instantes.',
-    traits: ['Equilíbrio', 'Dualidade', 'Adaptação'],
-    icon: Eclipse,
-    code: '04',
-  },
-];
-
-function LogoMark({ small = false }: { small?: boolean }) {
+function LogoMark({ size = 48 }: { size?: number }) {
   return (
-    <div className={`logo-mark ${small ? 'logo-mark-small' : ''}`} aria-label="Símbolo Allied">
-      <span>✦</span>
-      <span>✦</span>
-      <span>✦</span>
-      <span>✦</span>
+    <div className="logo-mark" style={{ width: size, height: size }} aria-hidden>
+      <span />
+      <span />
+      <span />
+      <span />
     </div>
   );
 }
 
-function SectionLabel({ children, number }: { children: string; number?: string }) {
+function AmbientLayer({ mouse }: { mouse: { x: number; y: number } }) {
+  const mx = (mouse.x - 0.5) * 48;
+  const my = (mouse.y - 0.5) * 36;
+
   return (
-    <div className="section-label">
-      <span>{number ?? '///'}</span>
-      <span>{children}</span>
-      <i />
+    <div className="ambient" aria-hidden>
+      <div className="ambient-glow" style={{ transform: `translate(${mx * 0.45}px, ${my * 0.45}px)` }} />
+      <div className="sakura-field" style={{ transform: `translate(${mx * 0.18}px, ${my * 0.12}px)` }}>
+        {Array.from({ length: 22 }).map((_, i) => (
+          <span
+            key={`petal-${i}`}
+            className={`petal p-${(i % 5) + 1}`}
+            style={{
+              left: `${(i * 4.7 + 1.5) % 100}%`,
+              animationDelay: `${(i * 0.82) % 14}s`,
+              animationDuration: `${13 + (i % 10)}s`,
+              width: `${8 + (i % 7) * 2}px`,
+              height: `${8 + (i % 7) * 2}px`,
+              opacity: 0.22 + (i % 5) * 0.07,
+            }}
+          />
+        ))}
+      </div>
+      <div className="glyph-field" style={{ transform: `translate(${mx * -0.22}px, ${my * -0.16}px)` }}>
+        {FALLING_CHARS.map((ch, i) => (
+          <span
+            key={`glyph-${i}`}
+            className={`glyph g-${(i % 3) + 1}`}
+            style={{
+              left: `${2 + ((i * 4.1) % 96)}%`,
+              animationDelay: `${(i * 0.75) % 16}s`,
+              animationDuration: `${15 + (i % 9)}s`,
+              fontSize: `${12 + (i % 7) * 2.2}px`,
+            }}
+          >
+            {ch}
+          </span>
+        ))}
+      </div>
+      <div className="grain-overlay" />
     </div>
   );
 }
 
 function App() {
+  const [page, setPage] = useState<Page>('home');
   const [menuOpen, setMenuOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-  const [quizStep, setQuizStep] = useState(0);
-  const [answers, setAnswers] = useState<number[]>([]);
-  const [result, setResult] = useState<Result | null>(null);
-  const [visitorName, setVisitorName] = useState('');
   const [musicOn, setMusicOn] = useState(true);
+  const [mouse, setMouse] = useState({ x: 0.5, y: 0.5 });
+  const [quizStep, setQuizStep] = useState(0);
+  const [answers, setAnswers] = useState<(number | undefined)[]>(Array(10).fill(undefined));
+  const [result, setResult] = useState<{ division: DivisionId; scores: DivisionScores } | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [activeDivision, setActiveDivision] = useState<DivisionId>('chuva');
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const musicTried = useRef(false);
-  const unlockAttempted = useRef(false);
+  const unlockTried = useRef(false);
+  const rafRef = useRef(0);
+  const targetMouse = useRef({ x: 0.5, y: 0.5 });
+
+  const go = useCallback((p: Page) => {
+    setPage(p);
+    setMenuOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.location.hash = p === 'home' ? '' : p;
+  }, []);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 24);
-    window.addEventListener('scroll', onScroll, { passive: true });
+    const fromHash = () => {
+      const h = window.location.hash.replace('#', '') as Page | '';
+      const valid: Page[] = [
+        'home',
+        'hierarchy',
+        'test',
+        'mural',
+        'rules',
+        'faq',
+        'chuva',
+        'sangue',
+        'abismo',
+        'eclipse',
+      ];
+      if (h && valid.includes(h)) setPage(h);
+      else if (!h) setPage('home');
+    };
+    fromHash();
+    window.addEventListener('hashchange', fromHash);
+    return () => window.removeEventListener('hashchange', fromHash);
+  }, []);
 
-    const revealObserver = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) entry.target.classList.add('is-visible');
-        });
-      },
-      { threshold: 0.1, rootMargin: '0px 0px -6% 0px' }
-    );
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      targetMouse.current = {
+        x: e.clientX / window.innerWidth,
+        y: e.clientY / window.innerHeight,
+      };
+    };
+    window.addEventListener('mousemove', onMove, { passive: true });
 
-    document.querySelectorAll('.reveal').forEach((el) => revealObserver.observe(el));
+    const tick = () => {
+      setMouse((prev) => ({
+        x: prev.x + (targetMouse.current.x - prev.x) * 0.07,
+        y: prev.y + (targetMouse.current.y - prev.y) * 0.07,
+      }));
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
 
     return () => {
-      window.removeEventListener('scroll', onScroll);
-      revealObserver.disconnect();
+      window.removeEventListener('mousemove', onMove);
+      cancelAnimationFrame(rafRef.current);
     };
-  }, [activeDivision, result, quizStep]);
+  }, []);
 
   useEffect(() => {
     const audio = new Audio('/audio/japanese-ambient.mp3');
     audio.loop = true;
-    audio.volume = 0.3;
+    audio.volume = 0.28;
     audio.preload = 'auto';
     audioRef.current = audio;
 
@@ -465,12 +460,11 @@ function App() {
         setMusicOn(true);
       }
     };
-
     tryPlay();
 
     const unlock = async () => {
-      if (unlockAttempted.current || !audioRef.current) return;
-      unlockAttempted.current = true;
+      if (unlockTried.current || !audioRef.current) return;
+      unlockTried.current = true;
       try {
         if (audioRef.current.paused) {
           await audioRef.current.play();
@@ -479,14 +473,9 @@ function App() {
       } catch {
         /* silent */
       }
-      document.removeEventListener('click', unlock);
-      document.removeEventListener('touchstart', unlock);
-      document.removeEventListener('keydown', unlock);
     };
-
     document.addEventListener('click', unlock, { once: true });
     document.addEventListener('touchstart', unlock, { once: true });
-    document.addEventListener('keydown', unlock, { once: true });
 
     return () => {
       audio.pause();
@@ -496,14 +485,14 @@ function App() {
   }, []);
 
   const toggleMusic = async () => {
-    const audio = audioRef.current;
-    if (!audio) return;
+    const a = audioRef.current;
+    if (!a) return;
     if (musicOn) {
-      audio.pause();
+      a.pause();
       setMusicOn(false);
     } else {
       try {
-        await audio.play();
+        await a.play();
         setMusicOn(true);
       } catch {
         setMusicOn(false);
@@ -511,764 +500,517 @@ function App() {
     }
   };
 
-  const progress = Math.round((answers.length / questions.length) * 100);
-  const currentQuestion = questions[quizStep];
-  const closeMenu = () => setMenuOpen(false);
-
-  const selectAnswer = (answerIndex: number) =>
-    setAnswers((current) => {
-      const next = [...current];
-      next[quizStep] = answerIndex;
+  const selectAnswer = (idx: number) => {
+    setAnswers((prev) => {
+      const next = [...prev];
+      next[quizStep] = idx;
       return next;
     });
+  };
 
-  const finishQuiz = () => {
-    const totals: Record<Attribute, number> = {
-      comportamento: 0,
-      disciplina: 0,
-      liderança: 0,
-      estratégia: 0,
-      poder: 0,
-      lealdade: 0,
-    };
-
-    answers.forEach((answerIndex, questionIndex) => {
-      Object.entries(questions[questionIndex].answers[answerIndex].scores).forEach(([key, value]) => {
-        totals[key as Attribute] += value ?? 0;
+  const finishTest = () => {
+    const scores: DivisionScores = { chuva: 0, sangue: 0, abismo: 0, eclipse: 0 };
+    answers.forEach((ai, qi) => {
+      if (ai === undefined) return;
+      const w = questions[qi].answers[ai].weights;
+      (Object.keys(w) as DivisionId[]).forEach((k) => {
+        scores[k] += w[k] ?? 0;
       });
     });
-
-    const scores = Object.fromEntries(
-      attributeKeys.map((key) => [key, Math.min(99, Math.round(58 + totals[key] * 3.2))])
-    ) as Record<Attribute, number>;
-
-    const total = Object.values(scores).reduce((sum, value) => sum + value, 0) / attributeKeys.length;
-
-    let division: DivisionLabel = 'DIVISÃO DO ECLIPSE';
-    if (total >= 88) division = 'DIVISÃO DA CHUVA';
-    else if (total >= 78) division = 'DIVISÃO DO SANGUE';
-    else if (total >= 68) division = 'DIVISÃO DO ABISMO';
-
-    setResult({ name: visitorName.trim() || 'RECRUTA', division, scores });
+    const ordered = (Object.entries(scores) as [DivisionId, number][]).sort((a, b) => b[1] - a[1]);
+    setResult({ division: ordered[0][0], scores });
   };
 
-  const resetQuiz = () => {
+  const resetTest = () => {
     setQuizStep(0);
-    setAnswers([]);
+    setAnswers(Array(10).fill(undefined));
     setResult(null);
-    setVisitorName('');
   };
 
-  const toggleFaq = (index: number) => {
-    setOpenFaq((prev) => (prev === index ? null : index));
-  };
-
-  const stats = useMemo(
-    () => [
-      {
-        value: '0',
-        label: 'TOLERÂNCIA PARA TRAIDORES',
-        note: 'Lealdade é a base da estrutura.',
-        icon: Shield,
-        featured: true,
-      },
-      { value: '04', label: 'DIVISÕES', note: 'Chuva · Sangue · Abismo · Eclipse.', icon: Crosshair },
-      { value: 'MULTI', label: 'JOGOS', note: 'Aberta a diversos títulos e estilos.', icon: Gamepad2 },
-      { value: 'ATIVA', label: 'HIERARQUIA', note: 'Cada posição exige presença.', icon: Crown },
-      { value: 'ABERTO', label: 'RECRUTAMENTO', note: 'A próxima história pode ser a sua.', icon: ArrowRight },
-      { value: 'PT-BR', label: 'COMUNIDADE', note: 'Organização, eventos e união.', icon: MessageCircle },
-    ],
-    []
+  const progress = useMemo(
+    () => Math.round((answers.filter((a) => a !== undefined).length / 10) * 100),
+    [answers]
   );
 
-  const activeDiv = divisionsData.find((d) => d.id === activeDivision)!;
-  const ActiveIcon = activeDiv.icon;
+  const themeClass =
+    page === 'chuva' || page === 'sangue' || page === 'abismo' || page === 'eclipse'
+      ? `theme-${page}`
+      : 'theme-core';
+
+  const isDivisionPage = page === 'chuva' || page === 'sangue' || page === 'abismo' || page === 'eclipse';
+  const activeDivision = isDivisionPage ? divisionMeta[page] : null;
+  const ActiveDivIcon = activeDivision?.icon;
 
   return (
-    <div className={`allied-app ${musicOn ? 'ambient-on' : ''}`}>
-      <div className="grain" />
-      <div className="rain" />
+    <div className={`allied-root ${themeClass} ${musicOn ? 'music-live' : ''}`}>
+      <AmbientLayer mouse={mouse} />
 
-      <div className="sakura-layer" aria-hidden="true">
-        {Array.from({ length: 14 }).map((_, i) => (
-          <span
-            key={`sakura-${i}`}
-            className={`sakura sakura-var-${(i % 6) + 1}`}
-            style={{
-              left: `${(i * 7.2 + 3) % 100}%`,
-              animationDelay: `${(i * 1.1) % 14}s`,
-              animationDuration: `${13 + (i % 8)}s`,
-              width: `${10 + (i % 5) * 2}px`,
-              height: `${10 + (i % 5) * 2}px`,
-            }}
-          />
-        ))}
-      </div>
-
-      <header className={`site-nav ${scrolled ? 'nav-scrolled' : ''}`}>
-        <a className="nav-brand" href="#home" onClick={closeMenu}>
-          <LogoMark small />
+      <header className="topbar">
+        <button type="button" className="brand" onClick={() => go('home')}>
+          <LogoMark size={30} />
           <span>
-            ALLIED<em>ORGANIZAÇÃO • PT-BR</em>
+            ALLIED<em>ORGANIZAÇÃO</em>
           </span>
-        </a>
-        <button
-          className="menu-button"
-          aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'}
-          onClick={() => setMenuOpen((open) => !open)}
-        >
+        </button>
+
+        <button type="button" className="burger" onClick={() => setMenuOpen((v) => !v)} aria-label="Menu">
           {menuOpen ? <X size={18} /> : <Menu size={18} />}
         </button>
-        <nav className={menuOpen ? 'nav-links nav-links-open' : 'nav-links'}>
-          {[
-            'home:HOME',
-            'allied:ALLIED',
-            'divisions:DIVISÕES',
-            'hierarchy:HIERARQUIA',
-            'mural:MURAL',
-            'stats:ESTATÍSTICAS',
-            'rules:REGRAS',
-            'test:TESTE',
-            'faq:FAQ',
-          ].map((link) => {
-            const [id, label] = link.split(':');
-            return (
-              <a href={`#${id}`} key={id} onClick={closeMenu}>
-                {label}
-              </a>
-            );
-          })}
-          <a
-            className="nav-cta"
-            href="https://discord.gg/UFUMMx5PkD"
-            target="_blank"
-            rel="noreferrer"
-            onClick={closeMenu}
-          >
-            ENTRAR <ArrowUpRight size={13} />
+
+        <nav className={menuOpen ? 'nav open' : 'nav'}>
+          {NAV_ITEMS.map((item) => (
+            <button
+              key={item.page}
+              type="button"
+              className={page === item.page ? 'nav-link active' : 'nav-link'}
+              onClick={() => go(item.page)}
+            >
+              {item.label}
+            </button>
+          ))}
+          <a className="nav-cta" href="https://discord.gg/UFUMMx5PkD" target="_blank" rel="noreferrer">
+            ENTRAR <ArrowUpRight size={12} />
           </a>
         </nav>
       </header>
 
-      <main>
-        <section className="hero" id="home">
-          <div className="hero-image" />
-          <div className="hero-red-light" />
-          <div className="hero-content reveal">
-            <SectionLabel number="01 / 09">ORGANIZAÇÃO • PT-BR</SectionLabel>
-            <p className="hero-kicker">Estrutura. Disciplina. Presença.</p>
-            <h1>
-              ENTRE
-              <br />
-              <span>NA ALLIED</span>
-            </h1>
-            <p className="hero-copy">
-              Uma organização aberta a diversos jogos, estilos e frentes. A Allied reúne membros que buscam competição,
-              hierarquia, eventos e uma estrutura real de crescimento.
-            </p>
-            <div className="hero-actions">
-              <a className="button button-red" href="https://discord.gg/UFUMMx5PkD" target="_blank" rel="noreferrer">
-                ENTRAR NA ALLIED <ArrowUpRight size={16} />
-              </a>
-              <a className="button button-outline" href="#divisions">
-                CONHECER DIVISÕES <ArrowRight size={15} />
-              </a>
-            </div>
-            <div className="hero-note">
-              <span className="note-line" />
-              Para entrar, abra um ticket no Discord e envie qualquer mensagem.
-            </div>
-          </div>
-          <div className="hero-emblem reveal">
-            <div className="emblem-glow" />
-            <LogoMark />
-            <span className="emblem-caption">
-              A / 01
-              <br />
-              ALLIED
-            </span>
-          </div>
-          <div className="scroll-cue">
-            <ArrowDown size={15} />
-            <span>DESCUBRA A ESTRUTURA</span>
-          </div>
-          <div className="hero-side-text">
-            DISCIPLINA
-            <br />
-            LEALDADE
-            <br />
-            PRESENÇA
-          </div>
-        </section>
+      <main className="stage">
+        {page === 'home' && (
+          <section className="home-world">
+            <div
+              className="home-orb"
+              style={{
+                transform: `translate(${(mouse.x - 0.5) * -36}px, ${(mouse.y - 0.5) * -24}px)`,
+              }}
+            />
 
-        <section className="manifesto section-dark" id="allied">
-          <div className="content-grid">
-            <div className="reveal">
-              <SectionLabel number="02 / 09">A ALLIED</SectionLabel>
-              <h2>
-                Não é apenas
-                <br />
-                <span>entrar.</span>
-              </h2>
-              <p className="large-copy">
-                A Allied é uma organização multi-jogo construída sobre hierarquia, disciplina, competitividade e
-                presença. Quatro divisões. Um comando. Espaço para quem quer crescer dentro de uma estrutura real — em
-                qualquer frente.
+            <div className="home-hero">
+              <p className="kicker">ORGANIZAÇÃO · MULTI-JOGO · PT-BR</p>
+              <h1>
+                <span className="line">ALLIED</span>
+                <span className="line accent">NÃO É UM LUGAR.</span>
+                <span className="line">É UMA ESTRUTURA.</span>
+              </h1>
+              <p className="lede">
+                Quatro divisões. Um comando. Competição, eventos, hierarquia e presença — em qualquer frente.
+                Uma organização viva, com identidade própria e espaço para quem carrega o nome com peso.
               </p>
-              <a className="text-link" href="#hierarchy">
-                CONHEÇA NOSSA ESTRUTURA <ArrowRight size={16} />
-              </a>
-            </div>
-            <div className="manifesto-card reveal">
-              <div className="card-image school-image" />
-              <div className="manifesto-card-footer">
-                <span>ALLIED ARCHIVE / 001</span>
-                <span>ESTRUTURA — PRESENÇA</span>
-              </div>
-            </div>
-          </div>
-          <div className="quote-line reveal">
-            <Quote size={20} />
-            <span>“ENTRAR É FÁCIL. PERMANECER EXIGE COMPROMISSO.”</span>
-            <i />
-          </div>
-        </section>
-
-        <section className="central section-paper" id="central">
-          <div className="section-heading reveal">
-            <div>
-              <SectionLabel number="03 / 09">PORTAS DE ACESSO</SectionLabel>
-              <h2>
-                Central da <span>Allied</span>
-              </h2>
-            </div>
-            <p>
-              Três destinos. Uma mesma origem.
-              <br />
-              Escolha onde sua história começa.
-            </p>
-          </div>
-          <div className="link-grid">
-            {officialLinks.map(({ label, title, description, href, icon: Icon }, index) => (
-              <a
-                className="official-card reveal"
-                href={href}
-                target="_blank"
-                rel="noreferrer"
-                key={label}
-                style={{ transitionDelay: `${index * 90}ms` }}
-              >
-                <div className="official-top">
-                  <span>0{index + 1}</span>
-                  <Icon size={20} />
-                </div>
-                <div>
-                  <p>{label}</p>
-                  <h3>{title}</h3>
-                  <span>{description}</span>
-                </div>
-                <div className="card-arrow">
-                  <MoveUpRight size={17} />
-                </div>
-              </a>
-            ))}
-          </div>
-        </section>
-
-        <section className="divisions-section section-dark" id="divisions">
-          <div className="section-heading reveal">
-            <div>
-              <SectionLabel number="04 / 09">AS QUATRO FRENTES</SectionLabel>
-              <h2>Divisões</h2>
-            </div>
-            <p>
-              Cada uma com identidade própria.
-              <br />
-              Escolha a que ressoa com você.
-            </p>
-          </div>
-
-          <div className="division-tabs reveal">
-            {divisionsData.map((division) => {
-              const Icon = division.icon;
-              return (
-                <button
-                  key={division.id}
-                  type="button"
-                  className={`division-tab ${activeDivision === division.id ? 'active' : ''} tab-${division.id}`}
-                  onClick={() => setActiveDivision(division.id)}
-                >
-                  <Icon size={16} />
-                  <span>{division.short}</span>
+              <div className="home-actions">
+                <button type="button" className="btn primary" onClick={() => go('test')}>
+                  FAZER O TESTE <ArrowRight size={16} />
                 </button>
-              );
-            })}
-          </div>
+                <button type="button" className="btn ghost" onClick={() => go('chuva')}>
+                  EXPLORAR DIVISÕES
+                </button>
+                <a className="btn ghost" href="https://discord.gg/UFUMMx5PkD" target="_blank" rel="noreferrer">
+                  DISCORD <ArrowUpRight size={14} />
+                </a>
+              </div>
+            </div>
 
-          <div className={`division-stage division-${activeDivision} reveal`} key={activeDivision}>
-            <div className="division-fx" aria-hidden="true">
-              {activeDivision === 'chuva' && (
-                <div className="fx-rain">
-                  {Array.from({ length: 48 }).map((_, i) => (
-                    <span
-                      key={i}
-                      className="rain-drop"
-                      style={{
-                        left: `${(i * 2.1) % 100}%`,
-                        animationDelay: `${(i * 0.11) % 2.8}s`,
-                        animationDuration: `${0.75 + (i % 6) * 0.12}s`,
-                        opacity: 0.35 + (i % 5) * 0.1,
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
+            <div className="home-grid">
+              {(Object.keys(divisionMeta) as DivisionId[]).map((id) => {
+                const meta = divisionMeta[id];
+                const Icon = meta.icon;
+                return (
+                  <button key={id} type="button" className={`home-div card-${id}`} onClick={() => go(id)}>
+                    <span className="hd-code">
+                      <Icon size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+                      {meta.code}
+                    </span>
+                    <strong>{meta.full}</strong>
+                    <em>{meta.tagline}</em>
+                  </button>
+                );
+              })}
+            </div>
 
-              {activeDivision === 'sangue' && (
-                <div className="fx-blood">
-                  {Array.from({ length: 14 }).map((_, i) => (
-                    <span
-                      key={i}
-                      className="blood-drip"
-                      style={{
-                        left: `${6 + i * 7}%`,
-                        animationDelay: `${(i * 0.35) % 3.5}s`,
-                        height: `${36 + (i % 5) * 18}px`,
-                        width: `${2 + (i % 3)}px`,
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
+            <div className="home-strip">
+              <button type="button" onClick={() => go('hierarchy')}>
+                <Crown size={14} /> HIERARQUIA
+              </button>
+              <button type="button" onClick={() => go('mural')}>
+                MURAL
+              </button>
+              <button type="button" onClick={() => go('rules')}>
+                CÓDIGO
+              </button>
+              <button type="button" onClick={() => go('faq')}>
+                FAQ
+              </button>
+              <a href="https://discord.gg/UFUMMx5PkD" target="_blank" rel="noreferrer">
+                <MessageCircle size={14} /> DISCORD
+              </a>
+            </div>
+          </section>
+        )}
 
-              {activeDivision === 'abismo' && (
-                <div className="fx-abyss">
-                  {Array.from({ length: 28 }).map((_, i) => (
-                    <span
-                      key={i}
-                      className="abyss-particle"
-                      style={{
-                        left: `${(i * 3.7) % 100}%`,
-                        top: `${(i * 6.3) % 100}%`,
-                        animationDelay: `${(i * 0.28) % 5}s`,
-                        width: `${2 + (i % 4)}px`,
-                        height: `${2 + (i % 4)}px`,
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
+        {isDivisionPage && activeDivision && ActiveDivIcon && (
+          <section className={`division-world dw-${page}`}>
+            <div className="dw-fx" aria-hidden>
+              {page === 'chuva' &&
+                Array.from({ length: 72 }).map((_, i) => (
+                  <span
+                    key={i}
+                    className="drop"
+                    style={{
+                      left: `${(i * 1.45) % 100}%`,
+                      animationDelay: `${(i * 0.06) % 2.2}s`,
+                      animationDuration: `${0.55 + (i % 6) * 0.14}s`,
+                      height: `${10 + (i % 9) * 5}px`,
+                      opacity: 0.25 + (i % 5) * 0.1,
+                    }}
+                  />
+                ))}
 
-              {activeDivision === 'eclipse' && (
-                <div className="fx-eclipse">
-                  <div className="eclipse-orb" />
-                  <div className="eclipse-shadow" />
+              {page === 'sangue' &&
+                Array.from({ length: 18 }).map((_, i) => (
+                  <span
+                    key={i}
+                    className="drip"
+                    style={{
+                      left: `${5 + i * 5.4}%`,
+                      animationDelay: `${(i * 0.38) % 4.2}s`,
+                      height: `${48 + (i % 6) * 28}px`,
+                      width: `${2 + (i % 3)}px`,
+                    }}
+                  />
+                ))}
+
+              {page === 'abismo' &&
+                Array.from({ length: 48 }).map((_, i) => (
+                  <span
+                    key={i}
+                    className="void-dot"
+                    style={{
+                      left: `${(i * 2.15) % 100}%`,
+                      top: `${(i * 3.7) % 100}%`,
+                      animationDelay: `${(i * 0.18) % 7}s`,
+                      width: `${2 + (i % 6)}px`,
+                      height: `${2 + (i % 6)}px`,
+                    }}
+                  />
+                ))}
+
+              {page === 'eclipse' && (
+                <div
+                  className="eclipse-system"
+                  style={{
+                    transform: `translate(${(mouse.x - 0.5) * 48}px, ${(mouse.y - 0.5) * 24}px)`,
+                  }}
+                >
+                  <div className="ecl-body" />
+                  <div className="ecl-mask" />
+                  <div className="ecl-ring" />
                 </div>
               )}
             </div>
 
-            <div className="division-content">
-              <div className="division-badge">
-                <ActiveIcon size={14} style={{ marginRight: 8, verticalAlign: 'middle' }} />
-                {activeDiv.code}
-              </div>
-              <h3>{activeDiv.name}</h3>
-              <p className="division-tagline">{activeDiv.tagline}</p>
-              <p className="division-desc">{activeDiv.description}</p>
-              <div className="division-traits">
-                {activeDiv.traits.map((trait) => (
-                  <span key={trait}>{trait}</span>
+            <div className="dw-content">
+              <button type="button" className="back-link" onClick={() => go('home')}>
+                <ArrowLeft size={14} /> VOLTAR AO CENTRO
+              </button>
+
+              <p className="dw-code">
+                <ActiveDivIcon size={15} style={{ marginRight: 10, verticalAlign: 'middle' }} />
+                {activeDivision.code}
+              </p>
+
+              <h1>{activeDivision.full}</h1>
+              <p className="dw-tag">{activeDivision.tagline}</p>
+              <p className="dw-body">{activeDivision.profile}</p>
+
+              <div className="home-strip" style={{ marginTop: 28 }}>
+                {activeDivision.traits.map((trait) => (
+                  <span
+                    key={trait}
+                    style={{
+                      padding: '10px 14px',
+                      border: '1px solid rgba(239,238,246,0.12)',
+                      font: "10px 'DM Mono', monospace",
+                      letterSpacing: '0.14em',
+                      color: 'var(--ink-soft)',
+                    }}
+                  >
+                    {trait}
+                  </span>
                 ))}
               </div>
-            </div>
-          </div>
-        </section>
 
-        <section className="hierarchy section-dark" id="hierarchy">
-          <div className="section-heading reveal">
-            <div>
-              <SectionLabel number="05 / 09">A ESTRUTURA</SectionLabel>
-              <h2>
-                Hierarquia
-                <br />
-                <span>ativa.</span>
-              </h2>
-            </div>
-            <p>
-              Cada posição exige presença,
-              <br />
-              responsabilidade e lealdade.
-            </p>
-          </div>
-
-          <div className="hierarchy-grid">
-            {hierarchy
-              .filter((item) => item.tier === 'top')
-              .map((item, index) => (
-                <article className="hier-card hier-top reveal" key={item.role} style={{ transitionDelay: `${index * 80}ms` }}>
-                  <div className="hier-photo">
-                    <img
-                      src={item.img}
-                      alt={item.title}
-                      loading="lazy"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.opacity = '0.12';
-                      }}
-                    />
-                    <div className="hier-glow" />
-                  </div>
-                  <div className="hier-info">
-                    <span className="hier-role">{item.role}</span>
-                    <h3>{item.title}</h3>
-                    <p>{item.desc}</p>
-                  </div>
-                  <LogoMark small />
-                </article>
-              ))}
-          </div>
-
-          <div className="hierarchy-divs">
-            {hierarchy
-              .filter((item) => item.tier === 'div')
-              .map((item, index) => (
-                <article
-                  className={`hier-card hier-div hier-${item.theme} reveal`}
-                  key={item.role}
-                  style={{ transitionDelay: `${index * 70}ms` }}
-                >
-                  <div className="hier-photo">
-                    <img
-                      src={item.img}
-                      alt={item.title}
-                      loading="lazy"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.opacity = '0.12';
-                      }}
-                    />
-                  </div>
-                  <div className="hier-info">
-                    <span className="hier-role">{item.role}</span>
-                    <h3>{item.title}</h3>
-                    <p>{item.desc}</p>
-                  </div>
-                </article>
-              ))}
-          </div>
-        </section>
-
-        <section className="mural-section section-paper" id="mural">
-          <div className="section-heading reveal">
-            <div>
-              <SectionLabel number="06 / 09">REGISTRO</SectionLabel>
-              <h2>
-                Mural de
-                <br />
-                <span>Fotos</span>
-              </h2>
-            </div>
-            <p>
-              Momentos capturados.
-              <br />
-              Presença registrada.
-            </p>
-          </div>
-          <div className="mural-gallery">
-            {muralPhotos.map((photo, index) => (
-              <article className="mural-piece reveal" key={photo.src} style={{ transitionDelay: `${index * 45}ms` }}>
-                <div className="mural-frame">
-                  <img className="mural-img" src={photo.src} alt={photo.label} loading="lazy" />
-                  <div className="mural-corner mural-corner-tl" />
-                  <div className="mural-corner mural-corner-br" />
-                </div>
-                <div className="mural-caption">
-                  <span>{photo.label}</span>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="stats section-paper" id="stats">
-          <div className="section-heading reveal">
-            <div>
-              <SectionLabel number="07 / 09">REGISTRO ALLIED</SectionLabel>
-              <h2>
-                Uma estrutura
-                <br />
-                <span>em movimento.</span>
-              </h2>
-            </div>
-            <span className="stamp">
-              ALLIED
-              <br />
-              RECORDS
-            </span>
-          </div>
-          <div className="stats-grid">
-            {stats.map(({ value, label, note, icon: Icon, featured }, index) => (
-              <div
-                className={`stat-card reveal ${featured ? 'stat-featured' : ''}`}
-                key={label}
-                style={{ transitionDelay: `${index * 70}ms` }}
-              >
-                <Icon size={17} />
-                <strong>{value}</strong>
-                <h3>{label}</h3>
-                <p>{note}</p>
-                <span className="stat-index">0{index + 1}</span>
+              <div className="dw-actions">
+                <button type="button" className="btn primary" onClick={() => go('test')}>
+                  DESCOBRIR SEU ALINHAMENTO
+                </button>
+                <button type="button" className="btn ghost" onClick={() => go('hierarchy')}>
+                  VER HIERARQUIA
+                </button>
+                <a className="btn ghost" href="https://discord.gg/UFUMMx5PkD" target="_blank" rel="noreferrer">
+                  ENTRAR NO DISCORD <ArrowUpRight size={14} />
+                </a>
               </div>
-            ))}
-          </div>
-        </section>
+            </div>
+          </section>
+        )}
 
-        <section className="rules section-dark" id="rules">
-          <div className="rules-intro reveal">
-            <SectionLabel number="08 / 09">CÓDIGO DA ALLIED</SectionLabel>
-            <h2>
-              As regras existem
-              <br />
-              para preservar
-              <br />
-              <span>nossa estrutura.</span>
-            </h2>
-            <p>Um nome forte exige uma conduta à altura. Leia antes de entrar.</p>
-          </div>
-          <div className="rules-list">
-            {rules.map(([title, description], index) => (
-              <article className="rule reveal" key={title}>
-                <span className="rule-number">{String(index + 1).padStart(2, '0')}</span>
-                <div>
-                  <h3>{title}</h3>
-                  <p>{description}</p>
-                </div>
-                <Check size={15} />
-              </article>
-            ))}
-          </div>
-        </section>
+        {page === 'hierarchy' && (
+          <section className="hierarchy-world">
+            <div className="hw-head">
+              <p className="kicker">ESTRUTURA DE COMANDO</p>
+              <h1>
+                Hierarquia
+                <span> orbital</span>
+              </h1>
+              <p className="lede">
+                Comando no centro. Divisões em órbita. Substitua os arquivos em{' '}
+                <code style={{ color: 'var(--chuva)' }}>/images/leadership/</code> mantendo os mesmos nomes.
+              </p>
+            </div>
 
-        <section className="quiz-section section-paper" id="test">
-          <div className="quiz-inline reveal">
-            <div className="quiz-inline-header">
-              <SectionLabel number="09 / 09">TESTE DE RECRUTAMENTO</SectionLabel>
-              <h2>
-                Descubra sua
-                <br />
-                <span>divisão.</span>
-              </h2>
-              <p>
-                Quinze perguntas. Quatro caminhos. O resultado indica a divisão mais alinhada ao seu perfil dentro da
-                Allied.
+            <div className="orbit">
+              <div className="orbit-ring r1" />
+              <div className="orbit-ring r2" />
+              {hierarchyNodes.map((node, i) => {
+                const angle = node.ring === 0 ? 0 : node.ring === 1 ? -90 : (i - 2) * 90 - 45;
+                const radius = node.ring === 0 ? 0 : node.ring === 1 ? 150 : 280;
+                const rad = (angle * Math.PI) / 180;
+                const x = Math.cos(rad) * radius;
+                const y = Math.sin(rad) * radius;
+                return (
+                  <article
+                    key={node.id}
+                    className={`orbit-node ring-${node.ring} ${node.div ? `node-${node.div}` : ''}`}
+                    style={{ transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))` }}
+                  >
+                    <div className="on-photo">
+                      <img
+                        src={node.img}
+                        alt={node.title}
+                        loading="lazy"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.opacity = '0.12';
+                        }}
+                      />
+                    </div>
+                    <span className="on-role">{node.role}</span>
+                    <strong>{node.title}</strong>
+                  </article>
+                );
+              })}
+            </div>
+
+            <div className="hw-mobile">
+              {hierarchyNodes.map((node) => (
+                <article key={node.id} className={`m-node ${node.div ? `node-${node.div}` : ''}`}>
+                  <div className="on-photo">
+                    <img
+                      src={node.img}
+                      alt={node.title}
+                      loading="lazy"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.opacity = '0.12';
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <span className="on-role">{node.role}</span>
+                    <strong>{node.title}</strong>
+                    <p style={{ margin: '6px 0 0', color: 'var(--muted)', fontSize: 12 }}>{node.desc}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {page === 'test' && (
+          <section className="test-world">
+            <div className="tw-head">
+              <p className="kicker">SISTEMA DE CLASSIFICAÇÃO</p>
+              <h1>
+                Teste de
+                <span> alinhamento</span>
+              </h1>
+              <p className="lede">
+                Dez decisões. Pesos internos por divisão. O resultado não é sorteio — é leitura de perfil.
               </p>
             </div>
 
             {result ? (
-              <div className="result-inline">
-                <div className="result-orbit">
-                  <LogoMark />
-                  <span>
-                    {result.division.includes('CHUVA')
-                      ? '01'
-                      : result.division.includes('SANGUE')
-                        ? '02'
-                        : result.division.includes('ABISMO')
-                          ? '03'
-                          : '04'}
-                  </span>
-                </div>
-                <p className="result-eyebrow">{divisionResults[result.division].eyebrow}</p>
-                <h3>
-                  {result.name}, <span>{result.division}</span>
-                </h3>
-                <p className="result-title">{divisionResults[result.division].title}</p>
-                <p className="result-description">{divisionResults[result.division].description}</p>
-                <div className="score-grid">
-                  {attributeKeys.map((key) => (
-                    <div className="score-row" key={key}>
-                      <span>{attributeLabels[key]}</span>
-                      <div>
-                        <i style={{ width: `${result.scores[key]}%` }} />
+              <div className={`result-panel rp-${result.division}`}>
+                <p className="rp-label">VOCÊ FOI CLASSIFICADO</p>
+                <h2>{divisionMeta[result.division].full}</h2>
+                <p className="rp-tag">{divisionMeta[result.division].tagline}</p>
+                <p className="rp-body">{divisionMeta[result.division].profile}</p>
+
+                <div className="rp-bars">
+                  {(Object.keys(result.scores) as DivisionId[]).map((k) => {
+                    const max = Math.max(...Object.values(result.scores), 1);
+                    const pct = Math.round((result.scores[k] / max) * 100);
+                    return (
+                      <div key={k} className="rp-bar">
+                        <span>{divisionMeta[k].name}</span>
+                        <div>
+                          <i style={{ width: `${pct}%` }} />
+                        </div>
                       </div>
-                      <strong>{result.scores[key]}%</strong>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
-                <div className="result-actions">
-                  <a className="button button-red" href="https://discord.gg/UFUMMx5PkD" target="_blank" rel="noreferrer">
-                    ENTRAR NA ALLIED <ArrowUpRight size={15} />
-                  </a>
-                  <button className="button button-ghost" onClick={resetQuiz}>
+
+                <div className="home-actions">
+                  <button type="button" className="btn primary" onClick={() => go(result.division)}>
+                    ENTRAR NO MUNDO
+                  </button>
+                  <button type="button" className="btn ghost" onClick={resetTest}>
                     REFAZER TESTE
                   </button>
+                  <a className="btn primary" href="https://discord.gg/UFUMMx5PkD" target="_blank" rel="noreferrer">
+                    ABRIR DISCORD <ArrowUpRight size={14} />
+                  </a>
                 </div>
               </div>
             ) : (
-              <div className="quiz-inline-body">
-                {!visitorName && quizStep === 0 && answers.length === 0 ? (
-                  <div className="quiz-name-step">
-                    <label htmlFor="visitor-name">Seu nome (opcional)</label>
-                    <input
-                      id="visitor-name"
-                      type="text"
-                      value={visitorName}
-                      onChange={(e) => setVisitorName(e.target.value)}
-                      placeholder="RECRUTA"
-                      maxLength={24}
-                    />
-                    <button className="button button-red" onClick={() => setVisitorName((v) => v.trim() || 'RECRUTA')}>
-                      COMEÇAR TESTE <ArrowRight size={15} />
-                    </button>
+              <div className="quiz-panel">
+                <div className="qp-progress">
+                  <span>
+                    {String(quizStep + 1).padStart(2, '0')} / 10
+                  </span>
+                  <div>
+                    <i style={{ width: `${Math.max(8, progress)}%` }} />
                   </div>
-                ) : (
-                  <>
-                    <div className="quiz-progress">
-                      <span>
-                        PERGUNTA {String(quizStep + 1).padStart(2, '0')} / {questions.length}
-                      </span>
-                      <div>
-                        <i style={{ width: `${Math.max(7, progress)}%` }} />
-                      </div>
-                      <span>{progress}%</span>
-                    </div>
-                    <span className="question-number">{currentQuestion.number}</span>
-                    <p className="question-category">{currentQuestion.title}</p>
-                    <h3 className="quiz-prompt">{currentQuestion.prompt}</h3>
-                    <div className="answers">
-                      {currentQuestion.answers.map((answer, index) => (
-                        <button
-                          className={answers[quizStep] === index ? 'answer selected' : 'answer'}
-                          key={answer.label}
-                          type="button"
-                          onClick={() => selectAnswer(index)}
-                        >
-                          <span>{String.fromCharCode(65 + index)}</span>
-                          <strong>{answer.label}</strong>
-                          {answers[quizStep] === index && <Check size={16} />}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="quiz-footer">
-                      <span>DISCIPLINA · LEALDADE · PRESENÇA</span>
-                      <div>
-                        {quizStep > 0 && (
-                          <button className="back-button" type="button" onClick={() => setQuizStep((step) => step - 1)}>
-                            VOLTAR
-                          </button>
-                        )}
-                        <button
-                          className="button button-red"
-                          type="button"
-                          disabled={answers[quizStep] === undefined}
-                          onClick={() =>
-                            quizStep === questions.length - 1 ? finishQuiz() : setQuizStep((step) => step + 1)
-                          }
-                        >
-                          {quizStep === questions.length - 1 ? 'REVELAR DIVISÃO' : 'PRÓXIMA'} <ArrowRight size={15} />
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
+                  <span>{progress}%</span>
+                </div>
 
-        <section className="faq section-dark" id="faq">
-          <div className="section-heading reveal">
-            <div>
-              <SectionLabel>FAQ</SectionLabel>
-              <h2>
-                Perguntas
-                <br />
-                <span>frequentes.</span>
-              </h2>
-            </div>
-            <p>
-              Antes de entrar, conheça o lugar
-              <br />
-              que você está prestes a ocupar.
-            </p>
-          </div>
-          <div className="faq-list">
-            {faqItems.map((item, index) => {
-              const isOpen = openFaq === index;
-              return (
-                <div className={`faq-item ${isOpen ? 'faq-open' : ''}`} key={item.q}>
+                <h2>{questions[quizStep].prompt}</h2>
+
+                <div className="qp-answers">
+                  {questions[quizStep].answers.map((ans, i) => (
+                    <button
+                      key={ans.label}
+                      type="button"
+                      className={answers[quizStep] === i ? 'selected' : ''}
+                      onClick={() => selectAnswer(i)}
+                    >
+                      <span>{String.fromCharCode(65 + i)}</span>
+                      <strong>{ans.label}</strong>
+                      {answers[quizStep] === i && <Check size={16} />}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="qp-nav">
+                  {quizStep > 0 && (
+                    <button type="button" className="btn ghost" onClick={() => setQuizStep((s) => s - 1)}>
+                      VOLTAR
+                    </button>
+                  )}
                   <button
                     type="button"
-                    aria-expanded={isOpen}
-                    aria-controls={`faq-answer-${index}`}
-                    onClick={() => toggleFaq(index)}
+                    className="btn primary"
+                    disabled={answers[quizStep] === undefined}
+                    onClick={() => (quizStep === 9 ? finishTest() : setQuizStep((s) => s + 1))}
                   >
-                    <span>0{index + 1}</span>
-                    <strong>{item.q}</strong>
-                    <ChevronDown size={17} />
+                    {quizStep === 9 ? 'REVELAR DIVISÃO' : 'PRÓXIMA'} <ArrowRight size={14} />
                   </button>
-                  <div
-                    className="faq-answer"
-                    id={`faq-answer-${index}`}
-                    role="region"
-                    style={{
-                      maxHeight: isOpen ? '220px' : '0px',
-                      opacity: isOpen ? 1 : 0,
-                      paddingBottom: isOpen ? '27px' : '0px',
-                    }}
-                  >
-                    <p>{item.a}</p>
-                  </div>
                 </div>
-              );
-            })}
-          </div>
-        </section>
+              </div>
+            )}
+          </section>
+        )}
 
-        <section className="final-cta">
-          <div className="final-image" />
-          <div className="final-overlay" />
-          <div className="final-content reveal">
-            <LogoMark />
-            <SectionLabel>THE NEXT CHAPTER</SectionLabel>
-            <h2>
-              Se você chegou
-              <br />
-              até aqui, talvez
-              <br />
-              seja hora de <span>entrar.</span>
-            </h2>
-            <p>A Allied está esperando por novos membros.</p>
-            <a className="button button-red" href="https://discord.gg/UFUMMx5PkD" target="_blank" rel="noreferrer">
-              ABRIR MEU TICKET <ArrowUpRight size={16} />
-            </a>
-          </div>
-        </section>
+        {page === 'mural' && (
+          <section className="mural-world">
+            <div className="hw-head">
+              <p className="kicker">REGISTRO VISUAL</p>
+              <h1>
+                Mural de
+                <span> presença</span>
+              </h1>
+              <p className="lede">Momentos capturados. A estrutura em movimento.</p>
+            </div>
+            <div className="mural-grid">
+              {muralPhotos.map((p) => (
+                <figure key={p.src} className="mural-item">
+                  <img src={p.src} alt={p.label} loading="lazy" />
+                  <figcaption>{p.label}</figcaption>
+                </figure>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {page === 'rules' && (
+          <section className="rules-world">
+            <div className="hw-head">
+              <p className="kicker">CÓDIGO DA ORGANIZAÇÃO</p>
+              <h1>
+                Regras da
+                <span> estrutura</span>
+              </h1>
+              <p className="lede">Um nome forte exige conduta à altura. Leia antes de entrar.</p>
+            </div>
+            <div className="rules-list">
+              {rules.map(([title, description], i) => (
+                <article key={title}>
+                  <span>{String(i + 1).padStart(2, '0')}</span>
+                  <div>
+                    <h3>{title}</h3>
+                    <p>{description}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {page === 'faq' && (
+          <section className="faq-world">
+            <div className="hw-head">
+              <p className="kicker">PERGUNTAS FREQUENTES</p>
+              <h1>
+                Antes de
+                <span> entrar</span>
+              </h1>
+              <p className="lede">O essencial sobre a Allied, as divisões e o recrutamento.</p>
+            </div>
+            <div className="faq-list">
+              {faqItems.map((item, i) => {
+                const open = openFaq === i;
+                return (
+                  <div key={item.q} className={open ? 'faq-item open' : 'faq-item'}>
+                    <button type="button" onClick={() => setOpenFaq(open ? null : i)}>
+                      <span>{String(i + 1).padStart(2, '0')}</span>
+                      <strong>{item.q}</strong>
+                      <ChevronDown size={16} />
+                    </button>
+                    <div className="faq-a" style={{ maxHeight: open ? 220 : 0, opacity: open ? 1 : 0 }}>
+                      <p>{item.a}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
       </main>
 
-      <footer className="site-footer">
-        <div className="footer-brand">
-          <LogoMark small />
-          <div>
-            <strong>ALLIED</strong>
-            <span>ORGANIZAÇÃO • PT-BR</span>
-          </div>
-        </div>
-        <p>Uma organização multi-jogo com estrutura, divisões e hierarquia próprias.</p>
-        <div className="footer-links">
-          <a href="https://discord.gg/UFUMMx5PkD" target="_blank" rel="noreferrer">
-            DISCORD ALLIED
-          </a>
-        </div>
-        <span className="copyright">© ALLIED / 2026</span>
+      <footer className="foot">
+        <LogoMark size={22} />
+        <span>ALLIED · ORGANIZAÇÃO · PT-BR</span>
+        <Shield size={12} style={{ opacity: 0.4 }} />
+        <a href="https://discord.gg/UFUMMx5PkD" target="_blank" rel="noreferrer">
+          Discord
+        </a>
       </footer>
 
       <button
-        className={`music-toggle ${musicOn ? 'music-on' : ''}`}
+        type="button"
+        className={`music-btn ${musicOn ? 'on' : ''}`}
         onClick={toggleMusic}
         aria-label={musicOn ? 'Desativar música' : 'Ativar música'}
-        type="button"
       >
-        {musicOn ? <Volume2 size={18} /> : <VolumeX size={18} />}
-        <span>{musicOn ? 'MÚSICA ON' : 'MÚSICA OFF'}</span>
+        {musicOn ? <Volume2 size={16} /> : <VolumeX size={16} />}
+        <span>{musicOn ? 'ON' : 'OFF'}</span>
       </button>
     </div>
   );
