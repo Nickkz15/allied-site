@@ -4,17 +4,11 @@ import {
   ArrowUpRight,
   Check,
   ChevronDown,
-  Crown,
-  Droplets,
-  Eclipse,
   Menu,
   MessageCircle,
-  Moon,
-  Shield,
   Volume2,
   VolumeX,
   X,
-  Zap,
 } from 'lucide-react';
 
 type SectionId =
@@ -27,18 +21,21 @@ type SectionId =
   | 'eclipse'
   | 'test'
   | 'join'
+  | 'signal'
+  | 'archives'
   | 'rules'
-  | 'faq';
+  | 'faq'
+  | 'mural';
 
 type DivisionId = 'chuva' | 'sangue' | 'abismo' | 'eclipse';
 type DivisionScores = Record<DivisionId, number>;
 type Answer = { label: string; weights: Partial<DivisionScores> };
 type Question = { id: number; prompt: string; answers: Answer[] };
 
+const PASS_KEY = 'allied-pass-v1';
 const FALLING_CHARS = [
   '桜', '月', '風', '雪', '龍', '夜', '光', '空', '夢', '影',
   '炎', '剣', '魂', '絆', '静', '雷', '霧', '玄', '刃', '嵐',
-  '桜', '月', '風', '雪',
 ];
 
 const SECTIONS: { id: SectionId; label: string }[] = [
@@ -50,6 +47,9 @@ const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'abismo', label: 'ABISMO' },
   { id: 'eclipse', label: 'ECLIPSE' },
   { id: 'test', label: 'TESTE' },
+  { id: 'signal', label: 'SINAL' },
+  { id: 'mural', label: 'MURAL' },
+  { id: 'archives', label: 'ARQUIVOS' },
   { id: 'join', label: 'ENTRAR' },
   { id: 'rules', label: 'CÓDIGO' },
   { id: 'faq', label: 'FAQ' },
@@ -160,15 +160,7 @@ const questions: Question[] = [
 
 const divisionMeta: Record<
   DivisionId,
-  {
-    name: string;
-    full: string;
-    code: string;
-    tagline: string;
-    profile: string;
-    traits: string[];
-    icon: typeof Droplets;
-  }
+  { name: string; full: string; code: string; tagline: string; profile: string; traits: string[] }
 > = {
   chuva: {
     name: 'Chuva',
@@ -178,7 +170,6 @@ const divisionMeta: Record<
     profile:
       'Você opera com frieza e método. Lê o cenário antes de se mover, corta ruído e transforma caos em sequência. Sua presença não grita — ela cobre o campo até não restar saída.',
     traits: ['Estratégia', 'Paciência', 'Precisão', 'Controle'],
-    icon: Droplets,
   },
   sangue: {
     name: 'Sangue',
@@ -188,7 +179,6 @@ const divisionMeta: Record<
     profile:
       'Você empurra o confronto. Onde outros hesitam, você acelera. Sua força está na intensidade controlada: pressão que quebra linhas e força o adversário a ceder terreno.',
     traits: ['Agressão', 'Domínio', 'Intensidade', 'Iniciativa'],
-    icon: Zap,
   },
   abismo: {
     name: 'Abismo',
@@ -198,7 +188,6 @@ const divisionMeta: Record<
     profile:
       'Você age nas camadas que poucos monitoram. Informação, timing e paciência são suas armas. Sua influência chega antes da sua imagem — e permanece depois do barulho.',
     traits: ['Mistério', 'Profundidade', 'Controle', 'Paciência'],
-    icon: Moon,
   },
   eclipse: {
     name: 'Eclipse',
@@ -208,7 +197,6 @@ const divisionMeta: Record<
     profile:
       'Você alterna entre pólos sem se perder. Sabe quando pressionar e quando conter, quando aparecer e quando sumir. Sua força é mudar o ritmo do jogo no momento certo.',
     traits: ['Equilíbrio', 'Dualidade', 'Adaptação', 'Versatilidade'],
-    icon: Eclipse,
   },
 };
 
@@ -221,10 +209,14 @@ const hierarchyNodes = [
   { id: 'd4', role: 'ECLIPSE', title: 'Líder da 4ª Divisão', desc: 'Dualidade e adaptação.', img: '/images/leadership/lider-divisao-4.png', ring: 2, div: 'eclipse' as DivisionId },
 ];
 
-const muralPhotos = Array.from({ length: 10 }, (_, i) => ({
-  src: `/images/mural/foto${i + 1}.png`,
-  label: `Lembrança - ${String(i + 1).padStart(2, '0')}`,
-}));
+const muralPhotos = [
+  { src: '/images/mural/foto1.png', label: 'Lembrança - 01', size: 'hero' as const },
+  { src: '/images/mural/foto2.png', label: 'Lembrança - 02', size: 'tall' as const },
+  { src: '/images/mural/foto3.png', label: 'Lembrança - 03', size: 'wide' as const },
+  { src: '/images/mural/foto4.png', label: 'Lembrança - 04', size: 'sq' as const },
+  { src: '/images/mural/foto5.png', label: 'Lembrança - 05', size: 'sq' as const },
+  { src: '/images/mural/foto6.png', label: 'Lembrança - 06', size: 'wide' as const },
+];
 
 const rules = [
   ['RESPEITO ACIMA DE TUDO', 'Sem ofensas, discriminação ou ataques pessoais entre membros.'],
@@ -233,8 +225,8 @@ const rules = [
   ['USO CORRETO DOS CANAIS', 'Cada canal tem sua finalidade. Use direito.'],
   ['SEM DIVULGAÇÃO NÃO AUTORIZADA', 'Proibido divulgar outros servidores, links ou conteúdos sem permissão.'],
   ['COMPROMETIMENTO COM A ORGANIZAÇÃO', 'Inatividade sem aviso pode resultar em punição ou remoção.'],
-  ['PARTICIPAÇÃO EM EVENTOS', 'Quando convocado, o membro deve participar. Ausência sem justificativa demonstra falta de compromisso.'],
-  ['PROIBIDO COMPORTAMENTO TÓXICO', 'Confusões paralelas, reclamações exageradas, desrespeito ou desmotivação não serão tolerados.'],
+  ['PARTICIPAÇÃO EM EVENTOS', 'Quando convocado, o membro deve participar.'],
+  ['PROIBIDO COMPORTAMENTO TÓXICO', 'Confusões paralelas, desrespeito ou desmotivação não serão tolerados.'],
   ['USO ADEQUADO DE VOZ', 'Evite gritaria, interrupções e bagunça durante calls.'],
   ['DECISÕES DA STAFF SÃO FINAIS', 'Discussões podem acontecer. Desobediência, não.'],
 ];
@@ -242,13 +234,105 @@ const rules = [
 const faqItems = [
   { q: 'Como entro na Allied?', a: 'Abra um ticket no Discord da Allied e envie qualquer mensagem. A equipe orienta o próximo passo.' },
   { q: 'Preciso jogar um título específico?', a: 'Não. A Allied é multi-jogo. O que importa é presença, disciplina e participação.' },
-  { q: 'O que são as divisões?', a: 'Quatro frentes com identidades próprias: Chuva, Sangue, Abismo e Eclipse. O teste indica o alinhamento mais próximo do seu perfil.' },
-  { q: 'Preciso estar no Discord?', a: 'Sim. O Discord é o centro de comunicação e organização da Allied.' },
-  { q: 'Existem eventos e tryouts?', a: 'Sim. Treinos, tryouts e atividades conforme a organização da equipe.' },
-  { q: 'Posso entrar sendo iniciante?', a: 'Sim. Há espaço para diferentes níveis. Evolução depende de constância e presença.' },
-  { q: 'Como funciona a hierarquia?', a: 'Líder e Vice-Líder no comando central. Cada divisão possui liderança própria.' },
-  { q: 'O teste define minha divisão para sempre?', a: 'O teste indica o alinhamento inicial. A trajetória também depende de presença, desempenho e decisão da liderança.' },
+  { q: 'O que são as divisões?', a: 'Quatro frentes com identidades próprias: Chuva, Sangue, Abismo e Eclipse.' },
+  { q: 'Preciso estar no Discord?', a: 'Sim. O Discord é o centro de comunicação e organização.' },
+  { q: 'Existem eventos?', a: 'Sim. Treinos, tryouts e atividades conforme a organização da equipe.' },
+  { q: 'Posso entrar sendo iniciante?', a: 'Sim. Evolução depende de constância e presença.' },
+  { q: 'Como funciona a hierarquia?', a: 'Líder e Vice-Líder no comando. Cada divisão possui liderança própria.' },
+  { q: 'O teste define minha divisão para sempre?', a: 'Indica o alinhamento inicial. A trajetória também depende de presença e decisão da liderança.' },
 ];
+
+const transmissions = [
+  { code: 'TX-07', title: 'ESTRUTURA ATIVA', body: 'A organização permanece em operação. Presença continua sendo o critério.' },
+  { code: 'TX-12', title: 'SINAL ESTÁVEL', body: 'Canais oficiais operando. Abra ticket apenas quando estiver pronto para o processo.' },
+  { code: 'TX-03', title: 'TERRITÓRIO ABERTO', body: 'As quatro regiões permanecem acessíveis. Explore antes de solicitar ingresso.' },
+  { code: 'TX-19', title: 'PROTOCOLO DE ENTRADA', body: 'Discord → ticket → orientação. Não há atalho fora da estrutura.' },
+];
+
+const archiveFragments = [
+  { id: 'A-01', label: 'FRAGMENTO', text: 'Quem grita primeiro raramente decide o fim.' },
+  { id: 'A-02', label: 'REGISTRO', text: 'A estrutura não pede volume. Pede constância.' },
+  { id: 'A-03', label: 'NOTA', text: 'Quatro regiões. Uma assinatura. Nenhuma é decoração.' },
+  { id: 'A-04', label: 'SINAL', text: 'Presença registrada não se anuncia. Se acumula.' },
+  { id: 'A-05', label: 'OBSERVAÇÃO', text: 'Entrar é o começo. Permanecer é o teste real.' },
+  { id: 'A-06', label: 'MARCA', text: 'Os sigilos não são enfeite. São mapa.' },
+];
+
+/* ——— SIGILS ——— */
+function SigilChuva({ size = 48, className = '' }: { size?: number; className?: string }) {
+  return (
+    <svg className={`sigil sigil-chuva ${className}`} width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden>
+      <path d="M32 6 L32 52" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" opacity="0.9" />
+      <path d="M22 14 L22 44" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.55" />
+      <path d="M42 12 L42 40" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.55" />
+      <path d="M14 20 L14 36" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" opacity="0.35" />
+      <path d="M50 18 L50 34" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" opacity="0.35" />
+      <path d="M32 48 C28 54 24 56 24 58 C24 60.2 27.6 62 32 62 C36.4 62 40 60.2 40 58 C40 56 36 54 32 48Z" fill="currentColor" opacity="0.85" />
+      <circle cx="22" cy="46" r="2.2" fill="currentColor" opacity="0.45" />
+      <circle cx="42" cy="42" r="1.8" fill="currentColor" opacity="0.4" />
+    </svg>
+  );
+}
+
+function SigilSangue({ size = 48, className = '' }: { size?: number; className?: string }) {
+  return (
+    <svg className={`sigil sigil-sangue ${className}`} width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden>
+      <path d="M32 4 C32 4 18 22 18 36 C18 46 24 54 32 54 C40 54 46 46 46 36 C46 22 32 4 32 4Z" stroke="currentColor" strokeWidth="1.5" fill="currentColor" fillOpacity="0.12" />
+      <path d="M20 28 L44 40" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.7" />
+      <path d="M24 22 L40 46" stroke="currentColor" strokeWidth="0.9" strokeLinecap="round" opacity="0.4" />
+      <path d="M32 54 L32 60" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M26 58 H38" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.6" />
+    </svg>
+  );
+}
+
+function SigilAbismo({ size = 48, className = '' }: { size?: number; className?: string }) {
+  return (
+    <svg className={`sigil sigil-abismo ${className}`} width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden>
+      <circle cx="32" cy="32" r="26" stroke="currentColor" strokeWidth="1" opacity="0.35" />
+      <circle cx="32" cy="32" r="18" stroke="currentColor" strokeWidth="1.1" opacity="0.55" />
+      <circle cx="32" cy="32" r="10" stroke="currentColor" strokeWidth="1.2" opacity="0.75" />
+      <circle cx="32" cy="32" r="3.5" fill="currentColor" />
+      <path d="M32 6 C40 16 44 24 44 32 C44 40 40 48 32 58" stroke="currentColor" strokeWidth="0.9" opacity="0.45" fill="none" />
+      <path d="M32 8 C24 18 20 26 20 32 C20 38 24 46 32 56" stroke="currentColor" strokeWidth="0.7" opacity="0.3" fill="none" />
+    </svg>
+  );
+}
+
+function SigilEclipse({ size = 48, className = '' }: { size?: number; className?: string }) {
+  return (
+    <svg className={`sigil sigil-eclipse ${className}`} width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden>
+      <circle cx="32" cy="32" r="22" stroke="currentColor" strokeWidth="1.3" />
+      <circle cx="32" cy="32" r="22" fill="currentColor" fillOpacity="0.08" />
+      <path d="M32 10 A22 22 0 0 1 32 54 A16 16 0 0 0 32 10Z" fill="currentColor" opacity="0.85" />
+      <circle cx="40" cy="24" r="2" fill="currentColor" opacity="0.35" />
+      <circle cx="44" cy="36" r="1.4" fill="currentColor" opacity="0.25" />
+    </svg>
+  );
+}
+
+function SigilFor({ id, size = 48, className = '' }: { id: DivisionId; size?: number; className?: string }) {
+  if (id === 'chuva') return <SigilChuva size={size} className={className} />;
+  if (id === 'sangue') return <SigilSangue size={size} className={className} />;
+  if (id === 'abismo') return <SigilAbismo size={size} className={className} />;
+  return <SigilEclipse size={size} className={className} />;
+}
+
+function AlliedMark({ size = 72, className = '' }: { size?: number; className?: string }) {
+  return (
+    <svg className={`allied-mark ${className}`} width={size} height={size} viewBox="0 0 96 96" fill="none" aria-hidden>
+      <circle cx="48" cy="48" r="44" stroke="currentColor" strokeWidth="1" opacity="0.25" />
+      <circle cx="48" cy="48" r="30" stroke="currentColor" strokeWidth="1.2" opacity="0.45" />
+      <path d="M48 18 L56 48 L48 78 L40 48 Z" fill="currentColor" opacity="0.9" />
+      <path d="M18 48 L48 40 L78 48 L48 56 Z" fill="currentColor" opacity="0.55" />
+      <circle cx="48" cy="48" r="5" fill="currentColor" />
+      <circle cx="48" cy="14" r="2.5" fill="currentColor" opacity="0.7" className="mark-orbit o1" />
+      <circle cx="82" cy="48" r="2.5" fill="currentColor" opacity="0.55" className="mark-orbit o2" />
+      <circle cx="48" cy="82" r="2.5" fill="currentColor" opacity="0.45" className="mark-orbit o3" />
+      <circle cx="14" cy="48" r="2.5" fill="currentColor" opacity="0.35" className="mark-orbit o4" />
+    </svg>
+  );
+}
 
 function LogoMark({ size = 48 }: { size?: number }) {
   return (
@@ -265,31 +349,31 @@ function AmbientLayer({ mouse }: { mouse: { x: number; y: number } }) {
     <div className="ambient" aria-hidden>
       <div className="ambient-glow" style={{ transform: `translate(${mx * 0.45}px, ${my * 0.45}px)` }} />
       <div className="sakura-field" style={{ transform: `translate(${mx * 0.18}px, ${my * 0.12}px)` }}>
-        {Array.from({ length: 20 }).map((_, i) => (
+        {Array.from({ length: 18 }).map((_, i) => (
           <span
-            key={`p-${i}`}
+            key={i}
             className={`petal p-${(i % 5) + 1}`}
             style={{
-              left: `${(i * 5.1 + 1.5) % 100}%`,
-              animationDelay: `${(i * 0.82) % 14}s`,
-              animationDuration: `${13 + (i % 10)}s`,
-              width: `${8 + (i % 7) * 2}px`,
-              height: `${8 + (i % 7) * 2}px`,
-              opacity: 0.22 + (i % 5) * 0.07,
+              left: `${(i * 5.5 + 2) % 100}%`,
+              animationDelay: `${(i * 0.85) % 14}s`,
+              animationDuration: `${13 + (i % 9)}s`,
+              width: `${8 + (i % 6) * 2}px`,
+              height: `${8 + (i % 6) * 2}px`,
+              opacity: 0.22 + (i % 4) * 0.07,
             }}
           />
         ))}
       </div>
-      <div className="glyph-field" style={{ transform: `translate(${mx * -0.22}px, ${my * -0.16}px)` }}>
+      <div className="glyph-field" style={{ transform: `translate(${mx * -0.2}px, ${my * -0.14}px)` }}>
         {FALLING_CHARS.map((ch, i) => (
           <span
-            key={`g-${i}`}
+            key={i}
             className={`glyph g-${(i % 3) + 1}`}
             style={{
-              left: `${2 + ((i * 4.1) % 96)}%`,
-              animationDelay: `${(i * 0.75) % 16}s`,
-              animationDuration: `${15 + (i % 9)}s`,
-              fontSize: `${12 + (i % 7) * 2.2}px`,
+              left: `${2 + ((i * 4.8) % 96)}%`,
+              animationDelay: `${(i * 0.8) % 15}s`,
+              animationDuration: `${15 + (i % 8)}s`,
+              fontSize: `${12 + (i % 6) * 2}px`,
             }}
           >
             {ch}
@@ -305,16 +389,16 @@ function DivisionFX({ id, mouse }: { id: DivisionId; mouse: { x: number; y: numb
   if (id === 'chuva') {
     return (
       <div className="dw-fx" aria-hidden>
-        {Array.from({ length: 56 }).map((_, i) => (
+        {Array.from({ length: 48 }).map((_, i) => (
           <span
             key={i}
             className="drop"
             style={{
-              left: `${(i * 1.8) % 100}%`,
-              animationDelay: `${(i * 0.07) % 2.2}s`,
-              animationDuration: `${0.55 + (i % 6) * 0.14}s`,
-              height: `${10 + (i % 9) * 5}px`,
-              opacity: 0.25 + (i % 5) * 0.1,
+              left: `${(i * 2.1) % 100}%`,
+              animationDelay: `${(i * 0.08) % 2}s`,
+              animationDuration: `${0.6 + (i % 5) * 0.12}s`,
+              height: `${12 + (i % 8) * 4}px`,
+              opacity: 0.28 + (i % 4) * 0.1,
             }}
           />
         ))}
@@ -324,14 +408,14 @@ function DivisionFX({ id, mouse }: { id: DivisionId; mouse: { x: number; y: numb
   if (id === 'sangue') {
     return (
       <div className="dw-fx" aria-hidden>
-        {Array.from({ length: 16 }).map((_, i) => (
+        {Array.from({ length: 14 }).map((_, i) => (
           <span
             key={i}
             className="drip"
             style={{
-              left: `${5 + i * 6}%`,
-              animationDelay: `${(i * 0.38) % 4.2}s`,
-              height: `${48 + (i % 6) * 28}px`,
+              left: `${6 + i * 6.5}%`,
+              animationDelay: `${(i * 0.4) % 4}s`,
+              height: `${44 + (i % 5) * 24}px`,
               width: `${2 + (i % 3)}px`,
             }}
           />
@@ -342,16 +426,16 @@ function DivisionFX({ id, mouse }: { id: DivisionId; mouse: { x: number; y: numb
   if (id === 'abismo') {
     return (
       <div className="dw-fx" aria-hidden>
-        {Array.from({ length: 40 }).map((_, i) => (
+        {Array.from({ length: 36 }).map((_, i) => (
           <span
             key={i}
             className="void-dot"
             style={{
-              left: `${(i * 2.5) % 100}%`,
-              top: `${(i * 3.9) % 100}%`,
-              animationDelay: `${(i * 0.18) % 7}s`,
-              width: `${2 + (i % 6)}px`,
-              height: `${2 + (i % 6)}px`,
+              left: `${(i * 2.7) % 100}%`,
+              top: `${(i * 4.1) % 100}%`,
+              animationDelay: `${(i * 0.2) % 6}s`,
+              width: `${2 + (i % 5)}px`,
+              height: `${2 + (i % 5)}px`,
             }}
           />
         ))}
@@ -362,7 +446,7 @@ function DivisionFX({ id, mouse }: { id: DivisionId; mouse: { x: number; y: numb
     <div className="dw-fx" aria-hidden>
       <div
         className="eclipse-system"
-        style={{ transform: `translate(${(mouse.x - 0.5) * 40}px, ${(mouse.y - 0.5) * 20}px)` }}
+        style={{ transform: `translate(${(mouse.x - 0.5) * 36}px, ${(mouse.y - 0.5) * 18}px)` }}
       >
         <div className="ecl-body" />
         <div className="ecl-mask" />
@@ -370,6 +454,23 @@ function DivisionFX({ id, mouse }: { id: DivisionId; mouse: { x: number; y: numb
       </div>
     </div>
   );
+}
+
+type PassState = {
+  chuva: boolean;
+  sangue: boolean;
+  abismo: boolean;
+  eclipse: boolean;
+  test: boolean;
+  archives: boolean;
+};
+
+function loadPass(): PassState {
+  try {
+    const raw = localStorage.getItem(PASS_KEY);
+    if (raw) return { ...{ chuva: false, sangue: false, abismo: false, eclipse: false, test: false, archives: false }, ...JSON.parse(raw) };
+  } catch { /* */ }
+  return { chuva: false, sangue: false, abismo: false, eclipse: false, test: false, archives: false };
 }
 
 function App() {
@@ -381,16 +482,29 @@ function App() {
   const [answers, setAnswers] = useState<(number | undefined)[]>(Array(10).fill(undefined));
   const [result, setResult] = useState<{ division: DivisionId; scores: DivisionScores } | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [pass, setPass] = useState<PassState>(() => loadPass());
+  const [txIndex, setTxIndex] = useState(0);
+  const [archiveOpen, setArchiveOpen] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const musicTried = useRef(false);
   const unlockTried = useRef(false);
   const rafRef = useRef(0);
   const targetMouse = useRef({ x: 0.5, y: 0.5 });
 
+  const stampPass = useCallback((key: keyof PassState) => {
+    setPass((prev) => {
+      if (prev[key]) return prev;
+      const next = { ...prev, [key]: true };
+      try {
+        localStorage.setItem(PASS_KEY, JSON.stringify(next));
+      } catch { /* */ }
+      return next;
+    });
+  }, []);
+
   const scrollTo = useCallback((id: SectionId) => {
     setMenuOpen(false);
-    const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, []);
 
   useEffect(() => {
@@ -399,9 +513,9 @@ function App() {
     };
     window.addEventListener('mousemove', onMove, { passive: true });
     const tick = () => {
-      setMouse((prev) => ({
-        x: prev.x + (targetMouse.current.x - prev.x) * 0.07,
-        y: prev.y + (targetMouse.current.y - prev.y) * 0.07,
+      setMouse((p) => ({
+        x: p.x + (targetMouse.current.x - p.x) * 0.07,
+        y: p.y + (targetMouse.current.y - p.y) * 0.07,
       }));
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -413,32 +527,41 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const nodes = SECTIONS.map((s) => document.getElementById(s.id)).filter(Boolean) as HTMLElement[];
+    const ids = SECTIONS.map((s) => s.id);
+    const nodes = ids.map((id) => document.getElementById(id)).filter(Boolean) as HTMLElement[];
     const observer = new IntersectionObserver(
       (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
-        if (visible[0]?.target?.id) setActive(visible[0].target.id as SectionId);
+        const vis = entries.filter((e) => e.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+        const id = vis[0]?.target?.id as SectionId | undefined;
+        if (id) {
+          setActive(id);
+          if (id === 'chuva' || id === 'sangue' || id === 'abismo' || id === 'eclipse') stampPass(id);
+          if (id === 'archives') stampPass('archives');
+        }
       },
-      { threshold: [0.2, 0.35, 0.5], rootMargin: '-20% 0px -35% 0px' }
+      { threshold: [0.2, 0.35, 0.5], rootMargin: '-18% 0px -30% 0px' }
     );
     nodes.forEach((n) => observer.observe(n));
 
-    const revealObserver = new IntersectionObserver(
+    const revealObs = new IntersectionObserver(
       (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) entry.target.classList.add('is-visible');
+        entries.forEach((e) => {
+          if (e.isIntersecting) e.target.classList.add('is-visible');
         });
       },
       { threshold: 0.12, rootMargin: '0px 0px -8% 0px' }
     );
-    document.querySelectorAll('.reveal').forEach((el) => revealObserver.observe(el));
+    document.querySelectorAll('.reveal').forEach((el) => revealObs.observe(el));
 
     return () => {
       observer.disconnect();
-      revealObserver.disconnect();
+      revealObs.disconnect();
     };
+  }, [stampPass]);
+
+  useEffect(() => {
+    const t = window.setInterval(() => setTxIndex((i) => (i + 1) % transmissions.length), 8000);
+    return () => clearInterval(t);
   }, []);
 
   useEffect(() => {
@@ -512,6 +635,8 @@ function App() {
     });
     const ordered = (Object.entries(scores) as [DivisionId, number][]).sort((a, b) => b[1] - a[1]);
     setResult({ division: ordered[0][0], scores });
+    stampPass('test');
+    stampPass(ordered[0][0]);
   };
 
   const resetTest = () => {
@@ -525,22 +650,28 @@ function App() {
     [answers]
   );
 
+  const passCount = useMemo(
+    () => Object.values(pass).filter(Boolean).length,
+    [pass]
+  );
+
   const themeClass =
     active === 'chuva' || active === 'sangue' || active === 'abismo' || active === 'eclipse'
       ? `theme-${active}`
-      : active === 'test' || active === 'join'
+      : active === 'test' || active === 'join' || active === 'signal'
         ? 'theme-core theme-ember'
         : 'theme-core';
 
   const activeIndex = SECTIONS.findIndex((s) => s.id === active);
+  const tx = transmissions[txIndex];
 
   return (
-    <div className={`allied-root continuous ${themeClass} ${musicOn ? 'music-live' : ''}`}>
+    <div className={`allied-root continuous ${themeClass} ${musicOn ? 'music-live' : ''} ${passCount >= 6 ? 'pass-complete' : ''}`}>
       <AmbientLayer mouse={mouse} />
 
       <header className="topbar">
         <button type="button" className="brand" onClick={() => scrollTo('home')}>
-          <LogoMark size={30} />
+          <LogoMark size={28} />
           <span>
             ALLIED<em>ORGANIZAÇÃO</em>
           </span>
@@ -549,7 +680,7 @@ function App() {
           {menuOpen ? <X size={18} /> : <Menu size={18} />}
         </button>
         <nav className={menuOpen ? 'nav open' : 'nav'}>
-          {SECTIONS.filter((s) => !['join', 'rules'].includes(s.id)).map((item) => (
+          {SECTIONS.filter((s) => !['join', 'rules', 'archives'].includes(s.id)).map((item) => (
             <button
               key={item.id}
               type="button"
@@ -565,12 +696,9 @@ function App() {
         </nav>
       </header>
 
-      <aside className="journey-rail" aria-label="Progresso da jornada">
+      <aside className="journey-rail" aria-label="Jornada">
         <div className="rail-track">
-          <div
-            className="rail-fill"
-            style={{ height: `${(activeIndex / Math.max(SECTIONS.length - 1, 1)) * 100}%` }}
-          />
+          <div className="rail-fill" style={{ height: `${(activeIndex / Math.max(SECTIONS.length - 1, 1)) * 100}%` }} />
         </div>
         {SECTIONS.map((s) => (
           <button
@@ -585,14 +713,34 @@ function App() {
         ))}
       </aside>
 
+      <div className="allied-pass" aria-label="Allied Pass">
+        <span className="pass-title">ALLIED PASS</span>
+        <div className="pass-slots">
+          {(['chuva', 'sangue', 'abismo', 'eclipse'] as DivisionId[]).map((id) => (
+            <div key={id} className={`pass-slot ${pass[id] ? 'lit' : ''} slot-${id}`} title={divisionMeta[id].name}>
+              <SigilFor id={id} size={18} />
+            </div>
+          ))}
+          <div className={`pass-slot ${pass.test ? 'lit' : ''}`} title="Teste">
+            <AlliedMark size={16} />
+          </div>
+          <div className={`pass-slot ${pass.archives ? 'lit' : ''}`} title="Arquivos">
+            <span className="pass-dot" />
+          </div>
+        </div>
+        <span className="pass-count">{String(passCount).padStart(2, '0')} / 06</span>
+      </div>
+
       <main className="journey">
-        {/* HOME */}
         <section className="region home-world" id="home">
           <div
             className="home-orb"
             style={{ transform: `translate(${(mouse.x - 0.5) * -36}px, ${(mouse.y - 0.5) * -24}px)` }}
           />
           <div className="home-hero reveal">
+            <div className="home-mark-wrap">
+              <AlliedMark size={88} className="home-mark" />
+            </div>
             <p className="kicker">ORGANIZAÇÃO · MULTI-JOGO · PT-BR</p>
             <h1>
               <span className="line">ALLIED</span>
@@ -600,8 +748,7 @@ function App() {
               <span className="line">É UMA ESTRUTURA.</span>
             </h1>
             <p className="lede">
-              Quatro divisões. Um comando. Competição, eventos, hierarquia e presença — em qualquer frente.
-              Role para atravessar o território da Allied.
+              Quatro divisões. Um comando. Role para atravessar o território — cada região carrega seu próprio sigilo.
             </p>
             <div className="home-actions">
               <button type="button" className="btn primary" onClick={() => scrollTo('allied')}>
@@ -618,7 +765,6 @@ function App() {
           </div>
         </section>
 
-        {/* ALLIED INTRO */}
         <section className="region allied-world" id="allied">
           <div className="region-inner reveal">
             <p className="kicker">O TERRITÓRIO</p>
@@ -627,29 +773,23 @@ function App() {
               <span> Quatro regiões.</span>
             </h2>
             <p className="lede">
-              A Allied não se resume a um único jogo ou estilo. É uma organização com estrutura, código e frentes
-              distintas — Chuva, Sangue, Abismo e Eclipse — unidas pela mesma assinatura.
+              Cada frente possui sigilo, atmosfera e função. A Allied é a assinatura que as une.
             </p>
             <div className="home-grid">
-              {(Object.keys(divisionMeta) as DivisionId[]).map((id) => {
-                const meta = divisionMeta[id];
-                const Icon = meta.icon;
-                return (
-                  <button key={id} type="button" className={`home-div card-${id}`} onClick={() => scrollTo(id)}>
-                    <span className="hd-code">
-                      <Icon size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
-                      {meta.code}
-                    </span>
-                    <strong>{meta.full}</strong>
-                    <em>{meta.tagline}</em>
-                  </button>
-                );
-              })}
+              {(Object.keys(divisionMeta) as DivisionId[]).map((id) => (
+                <button key={id} type="button" className={`home-div card-${id}`} onClick={() => scrollTo(id)}>
+                  <span className="hd-code">
+                    <SigilFor id={id} size={22} />
+                    {divisionMeta[id].code}
+                  </span>
+                  <strong>{divisionMeta[id].full}</strong>
+                  <em>{divisionMeta[id].tagline}</em>
+                </button>
+              ))}
             </div>
           </div>
         </section>
 
-        {/* HIERARCHY */}
         <section className="region hierarchy-world" id="hierarchy">
           <div className="hw-head reveal">
             <p className="kicker">ESTRUTURA DE COMANDO</p>
@@ -657,7 +797,7 @@ function App() {
               Hierarquia
               <span> orbital</span>
             </h2>
-            <p className="lede">Comando no centro. Divisões em órbita.</p>
+            <p className="lede">Comando no centro. Divisões em órbita — cada líder carrega o sigilo da sua frente.</p>
           </div>
           <div className="orbit reveal">
             <div className="orbit-ring r1" />
@@ -683,6 +823,11 @@ function App() {
                         (e.target as HTMLImageElement).style.opacity = '0.12';
                       }}
                     />
+                    {node.div && (
+                      <div className="on-sigil">
+                        <SigilFor id={node.div} size={28} />
+                      </div>
+                    )}
                   </div>
                   <span className="on-role">{node.role}</span>
                   <strong>{node.title}</strong>
@@ -702,6 +847,11 @@ function App() {
                       (e.target as HTMLImageElement).style.opacity = '0.12';
                     }}
                   />
+                  {node.div && (
+                    <div className="on-sigil">
+                      <SigilFor id={node.div} size={22} />
+                    </div>
+                  )}
                 </div>
                 <div>
                   <span className="on-role">{node.role}</span>
@@ -713,18 +863,19 @@ function App() {
           </div>
         </section>
 
-        {/* DIVISIONS + TRANSITIONS */}
         {(Object.keys(divisionMeta) as DivisionId[]).map((id, index) => {
           const meta = divisionMeta[id];
-          const Icon = meta.icon;
           const nextId = (['sangue', 'abismo', 'eclipse', 'test'] as const)[index];
           return (
             <div key={id} className="division-block">
               <section className={`region division-world dw-${id}`} id={id}>
                 <DivisionFX id={id} mouse={mouse} />
+                <div className="dw-sigil-stage" aria-hidden>
+                  <SigilFor id={id} size={200} className="dw-sigil-hero" />
+                </div>
                 <div className="dw-content reveal">
                   <p className="dw-code">
-                    <Icon size={15} style={{ marginRight: 10, verticalAlign: 'middle' }} />
+                    <SigilFor id={id} size={20} />
                     {meta.code}
                   </p>
                   <h2>{meta.full}</h2>
@@ -739,6 +890,15 @@ function App() {
               </section>
               <div className={`bridge bridge-${id}-to-${nextId}`} aria-hidden>
                 <div className="bridge-particles" />
+                <div className="bridge-sigils">
+                  <SigilFor id={id} size={28} />
+                  <AlliedMark size={22} />
+                  {index < 3 ? (
+                    <SigilFor id={nextId as DivisionId} size={28} />
+                  ) : (
+                    <AlliedMark size={28} />
+                  )}
+                </div>
                 <span className="bridge-label">
                   {index < 3 ? 'A REGIÃO SE TRANSFORMA' : 'O TERRITÓRIO ABRE O TESTE'}
                 </span>
@@ -747,19 +907,22 @@ function App() {
           );
         })}
 
-        {/* TEST */}
         <section className="region test-world" id="test">
           <div className="tw-head reveal">
+            <AlliedMark size={48} className="tw-mark" />
             <p className="kicker">SISTEMA DE CLASSIFICAÇÃO</p>
             <h2>
               Teste de
               <span> alinhamento</span>
             </h2>
-            <p className="lede">Dez decisões. Pesos internos. Uma divisão.</p>
+            <p className="lede">Dez decisões. Pesos internos. Uma divisão — e seu sigilo.</p>
           </div>
 
           {result ? (
             <div className={`result-panel rp-${result.division} reveal`}>
+              <div className="result-sigil">
+                <SigilFor id={result.division} size={96} className="result-sigil-anim" />
+              </div>
               <p className="rp-label">VOCÊ FOI CLASSIFICADO</p>
               <h3>{divisionMeta[result.division].full}</h3>
               <p className="rp-tag">{divisionMeta[result.division].tagline}</p>
@@ -770,7 +933,9 @@ function App() {
                   const pct = Math.round((result.scores[k] / max) * 100);
                   return (
                     <div key={k} className="rp-bar">
-                      <span>{divisionMeta[k].name}</span>
+                      <span>
+                        <SigilFor id={k} size={14} /> {divisionMeta[k].name}
+                      </span>
                       <div>
                         <i style={{ width: `${pct}%` }} />
                       </div>
@@ -786,7 +951,7 @@ function App() {
                   REFAZER
                 </button>
                 <button type="button" className="btn primary" onClick={() => scrollTo('join')}>
-                  SEGUIR PARA O INGRESSO
+                  INGRESSO
                 </button>
               </div>
             </div>
@@ -835,10 +1000,84 @@ function App() {
           )}
         </section>
 
-        {/* JOIN */}
+        <section className="region signal-world" id="signal">
+          <div className="signal-panel reveal">
+            <div className="signal-head">
+              <AlliedMark size={36} />
+              <div>
+                <p className="kicker">SINAL DA ALLIED</p>
+                <span className="signal-code">{tx.code}</span>
+              </div>
+              <span className="signal-live">TRANSMISSÃO</span>
+            </div>
+            <h2 className="signal-title">{tx.title}</h2>
+            <p className="signal-body">{tx.body}</p>
+            <div className="signal-dots">
+              {transmissions.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  className={i === txIndex ? 'on' : ''}
+                  onClick={() => setTxIndex(i)}
+                  aria-label={`Transmissão ${i + 1}`}
+                />
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="region mural-world" id="mural">
+          <div className="hw-head reveal">
+            <p className="kicker">REGISTRO</p>
+            <h2>
+              Mural de
+              <span> presença</span>
+            </h2>
+            <p className="lede">Seis registros. Memória da estrutura.</p>
+          </div>
+          <div className="mural-editorial">
+            {muralPhotos.map((p, i) => (
+              <figure key={p.src} className={`mural-item size-${p.size} reveal`} style={{ transitionDelay: `${i * 40}ms` }}>
+                <img src={p.src} alt={p.label} loading="lazy" />
+                <figcaption>{p.label}</figcaption>
+              </figure>
+            ))}
+          </div>
+        </section>
+
+        <section className="region archives-world" id="archives">
+          <div className="archives-inner reveal">
+            <p className="kicker">CLASSIFICADOS</p>
+            <h2>
+              Arquivos
+              <span> da estrutura</span>
+            </h2>
+            <p className="lede quiet">Fragmentos. Não é um jogo — é presença registrada.</p>
+            <div className="archive-grid">
+              {archiveFragments.map((frag, i) => (
+                <button
+                  key={frag.id}
+                  type="button"
+                  className={`archive-card ${archiveOpen === i ? 'open' : ''}`}
+                  onClick={() => setArchiveOpen(archiveOpen === i ? null : i)}
+                >
+                  <span className="arch-id">{frag.id}</span>
+                  <span className="arch-label">{frag.label}</span>
+                  <p>{archiveOpen === i ? frag.text : '·····'}</p>
+                </button>
+              ))}
+            </div>
+            {passCount >= 6 && (
+              <p className="pass-complete-msg">
+                ALLIED PASS COMPLETO — a estrutura reconheceu sua passagem.
+              </p>
+            )}
+          </div>
+        </section>
+
         <section className="region join-world" id="join">
           <div className="join-inner reveal">
-            <LogoMark size={72} />
+            <AlliedMark size={80} />
             <p className="kicker">THE NEXT CHAPTER</p>
             <h2>
               Se você chegou até aqui,
@@ -856,26 +1095,6 @@ function App() {
           </div>
         </section>
 
-        {/* MURAL inline light */}
-        <section className="region mural-world" id="mural-inline">
-          <div className="hw-head reveal">
-            <p className="kicker">REGISTRO</p>
-            <h2>
-              Mural de
-              <span> presença</span>
-            </h2>
-          </div>
-          <div className="mural-grid">
-            {muralPhotos.map((p) => (
-              <figure key={p.src} className="mural-item reveal">
-                <img src={p.src} alt={p.label} loading="lazy" />
-                <figcaption>{p.label}</figcaption>
-              </figure>
-            ))}
-          </div>
-        </section>
-
-        {/* RULES */}
         <section className="region rules-world" id="rules">
           <div className="hw-head reveal">
             <p className="kicker">CÓDIGO</p>
@@ -897,7 +1116,6 @@ function App() {
           </div>
         </section>
 
-        {/* FAQ */}
         <section className="region faq-world" id="faq">
           <div className="hw-head reveal">
             <p className="kicker">FAQ</p>
@@ -927,10 +1145,14 @@ function App() {
       </main>
 
       <footer className="foot">
-        <LogoMark size={22} />
+        <AlliedMark size={28} />
+        <div className="foot-sigils">
+          <SigilChuva size={16} />
+          <SigilSangue size={16} />
+          <SigilAbismo size={16} />
+          <SigilEclipse size={16} />
+        </div>
         <span>ALLIED · ORGANIZAÇÃO · PT-BR</span>
-        <Shield size={12} style={{ opacity: 0.4 }} />
-        <Crown size={12} style={{ opacity: 0.35 }} />
         <a href="https://discord.gg/UFUMMx5PkD" target="_blank" rel="noreferrer">
           <MessageCircle size={12} /> Discord
         </a>
