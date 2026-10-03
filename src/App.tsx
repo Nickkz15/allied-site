@@ -515,6 +515,33 @@ function LogoMark({ size = 48 }: { size?: number }) {
 function AmbientLayer() {
   return (
     <div className="ambient" aria-hidden>
+      {/* CAMADA 1–3: base + atmosfera + arquitetura */}
+      <div className="world-base" />
+      <div className="world-atmosphere" />
+      <div className="world-arch">
+        <span className="arch-arc a1" />
+        <span className="arch-arc a2" />
+        <span className="arch-line l1" />
+        <span className="arch-line l2" />
+        <span className="arch-line l3" />
+        <span className="arch-plane p1" />
+        <span className="arch-plane p2" />
+        <span className="arch-ring r-far" />
+        <span className="arch-sigil-ghost sg1" />
+        <span className="arch-sigil-ghost sg2" />
+      </div>
+
+      {/* CAMADA 4: objetos 3D simulados em deriva */}
+      <div className="drift-field">
+        <div className="drift-obj do-plate do-near path-h1" />
+        <div className="drift-obj do-prism do-mid path-d1" />
+        <div className="drift-obj do-ring do-far path-h2" />
+        <div className="drift-obj do-shard do-near path-d2" />
+        <div className="drift-obj do-cube do-mid path-h3" />
+        <div className="drift-obj do-plate do-far path-d3" />
+        <div className="drift-obj do-glyph-slab do-mid path-h4" />
+      </div>
+
       <div className="ambient-glow" />
       <div className="sakura-field">
         {Array.from({ length: 16 }).map((_, i) => (
@@ -857,6 +884,9 @@ function App() {
     setResult({ division, scores });
     stampPass('test');
     stampPass(division);
+    window.requestAnimationFrame(() => {
+      document.getElementById('test')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
   };
 
   const resetTest = () => {
@@ -914,7 +944,7 @@ function App() {
   return (
     <div
       ref={rootRef}
-      className={`allied-root continuous ${themeClass} ${ambientIntensity} ${musicOn ? 'music-live' : ''} ${passCount >= 6 ? 'pass-complete' : ''} ${openingDone ? 'opening-done' : 'opening'}`}
+      className={`allied-root continuous ${themeClass} ${ambientIntensity} ${musicOn ? 'music-live' : ''} ${passCount >= 6 ? 'pass-complete' : ''} ${openingDone ? 'opening-done' : 'opening'}${result ? ` classified classified-${result.division}` : ''}`}
       style={{ '--mx': '0.5', '--my': '0.5' } as CSSProperties}
     >
       <AmbientLayer />
@@ -1044,6 +1074,9 @@ function App() {
                 <button type="button" className="btn primary" onClick={() => scrollTo('allied')}>
                   ENTRAR NO TERRITÓRIO <ArrowRight size={16} />
                 </button>
+                <a className="btn ghost" href="https://discord.gg/UFUMMx5PkD" target="_blank" rel="noreferrer">
+                  ENTRAR NO DISCORD <ArrowUpRight size={14} />
+                </a>
               </div>
             </div>
           </div>
@@ -1253,7 +1286,7 @@ function App() {
           </div>
 
           {result ? (
-            <div className={`result-panel rp-${result.division} reveal`}>
+            <div className={`result-panel result-anchor rp-${result.division}`}>
               <p className="rp-process">ANÁLISE CONCLUÍDA</p>
               <div className="result-sigil">
                 <SigilFor id={result.division} size={100} className="result-sigil-anim" />
@@ -1282,8 +1315,11 @@ function App() {
                 <button type="button" className="btn ghost" onClick={() => scrollTo(result.division)}>
                   VER MINHA DIVISÃO
                 </button>
-                <button type="button" className="btn primary" onClick={() => scrollTo('join')}>
-                  ENTRAR NA ALLIED <ArrowRight size={14} />
+                <a className="btn primary" href="https://discord.gg/UFUMMx5PkD" target="_blank" rel="noreferrer">
+                  ENTRAR NA ALLIED <ArrowUpRight size={14} />
+                </a>
+                <button type="button" className="btn ghost" onClick={() => scrollTo('join')}>
+                  CONTINUAR A JORNADA
                 </button>
                 <button type="button" className="btn ghost" onClick={resetTest}>
                   REFAZER
@@ -1345,10 +1381,12 @@ function App() {
           <div className="signal-panel reveal">
             <div className="signal-scan" aria-hidden />
             <div className="signal-head">
-              <AlliedMark size={36} />
-              <div>
-                <p className="kicker">SINAL DA ALLIED</p>
-                <span className="signal-code">{tx.code}</span>
+              <div className="signal-brand">
+                <AlliedMark size={36} />
+                <div className="signal-meta">
+                  <p className="kicker signal-kicker">SINAL DA ALLIED</p>
+                  <span className="signal-code">{tx.code}</span>
+                </div>
               </div>
               <span className={`signal-live st-${tx.status.toLowerCase()}`}>{tx.status}</span>
             </div>
@@ -1412,23 +1450,38 @@ function App() {
         {/* ATO VI — INGRESSO */}
         <section className="region join-world" id="join">
           <div className="join-inner reveal">
-            <AlliedMark size={80} className={passCount >= 6 ? 'mark-complete' : ''} />
-            <p className="kicker">PRÓXIMO PASSO</p>
-            <h2>
-              Você chegou até aqui.
-              <span> Existe um caminho de entrada.</span>
-            </h2>
-            <p className="lede">
-              Agora que conhece a estrutura
-              {result ? ` e foi alinhado à ${divisionMeta[result.division].name}` : ''}, o próximo passo é o Discord.
-            </p>
-            <div className="home-actions">
-              <a className="btn primary" href="https://discord.gg/UFUMMx5PkD" target="_blank" rel="noreferrer">
-                ABRIR MEU TICKET <ArrowUpRight size={16} />
-              </a>
-              <button type="button" className="btn ghost" onClick={() => scrollTo('rules')}>
-                LER O CÓDIGO
-              </button>
+            <div className="discord-portal">
+              <div className="portal-orbit" aria-hidden />
+              <div className="portal-core">
+                {result ? (
+                  <SigilFor id={result.division} size={56} className="portal-sigil" />
+                ) : (
+                  <AlliedMark size={72} className={passCount >= 6 ? 'mark-complete' : ''} />
+                )}
+              </div>
+              <p className="kicker portal-kicker">ACESSO EXTERNO</p>
+              <h2 className="portal-title">
+                Discord da Allied
+                <span>O território continua fora daqui.</span>
+              </h2>
+              <p className="lede portal-lede">
+                {result
+                  ? `Classificação: ${divisionMeta[result.division].full}. A estrutura reconheceu seu alinhamento.`
+                  : 'Agora que conhece a estrutura, o próximo passo é o canal oficial.'}
+              </p>
+              <div className="portal-actions">
+                <a className="btn primary portal-cta" href="https://discord.gg/UFUMMx5PkD" target="_blank" rel="noreferrer">
+                  ABRIR DISCORD <ArrowUpRight size={16} />
+                </a>
+                <button type="button" className="btn ghost" onClick={() => scrollTo('rules')}>
+                  LER O CÓDIGO
+                </button>
+              </div>
+              <div className="portal-lines" aria-hidden>
+                <span />
+                <span />
+                <span />
+              </div>
             </div>
           </div>
         </section>
