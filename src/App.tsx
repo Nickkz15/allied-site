@@ -6,6 +6,7 @@ import {
   useState,
   type CSSProperties,
 } from 'react';
+import AlliedExperience, { PhotoLightbox } from './AlliedExperience';
 import {
   ArrowRight,
   ArrowUpRight,
@@ -695,6 +696,7 @@ function App() {
   const [txIndex, setTxIndex] = useState(() => dayTxIndex());
   const [archiveOpen, setArchiveOpen] = useState<number | null>(null);
   const [openingDone, setOpeningDone] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<number | null>(null);
 
   const stampPass = useCallback((key: keyof PassState) => {
     setPass((prev) => {
@@ -1059,7 +1061,9 @@ function App() {
           <div className="home-hero">
             <div className="opening-stage">
               <div className="op-mark">
-                <AlliedMark size={96} className="home-mark" />
+                <AlliedExperience>
+                  <AlliedMark size={76} className="home-mark" />
+                </AlliedExperience>
               </div>
               <p className="kicker op-kicker">ORGANIZAÇÃO · MULTI-JOGO · PT-BR</p>
               <h1 className="op-title">
@@ -1145,7 +1149,15 @@ function App() {
                 className={`mural-item size-${p.size} reveal`}
                 style={{ transitionDelay: `${i * 50}ms` }}
               >
-                <img src={p.src} alt={p.label} loading="lazy" />
+                <button
+                  type="button"
+                  className="mural-image-button"
+                  onClick={() => setSelectedPhoto(i)}
+                  aria-label={`Ampliar ${p.label}`}
+                >
+                  <img src={p.src} alt="" loading="lazy" decoding="async" />
+                  <span className="mural-zoom-label">ABRIR REGISTRO <ArrowUpRight size={12} /></span>
+                </button>
                 <figcaption>{p.label}</figcaption>
               </figure>
             ))}
@@ -1534,6 +1546,15 @@ function App() {
           </div>
         </section>
       </main>
+
+      {selectedPhoto !== null && (
+        <PhotoLightbox
+          photo={muralPhotos[selectedPhoto]}
+          onClose={() => setSelectedPhoto(null)}
+          onNext={() => setSelectedPhoto((current) => current === null ? 0 : (current + 1) % muralPhotos.length)}
+          onPrevious={() => setSelectedPhoto((current) => current === null ? 0 : (current - 1 + muralPhotos.length) % muralPhotos.length)}
+        />
+      )}
 
       <footer className="foot">
         <AlliedMark size={28} />
